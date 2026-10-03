@@ -12,6 +12,10 @@ type Material struct {
 	Texture string `json:"texture,omitempty"`
 	Class   string `json:"class,omitempty"`
 	Alpha   bool   `json:"alpha,omitempty"`
+	// Tint is the ETS2 material "diffuse" colour (0..1) that multiplies the
+	// texture. HasTint is false when the material is neutral/white.
+	Tint    [3]float64 `json:"tint,omitempty"`
+	HasTint bool       `json:"has_tint,omitempty"`
 }
 type Vertex struct {
 	Position Vec3 `json:"position"`
@@ -134,3 +138,13 @@ func (s *Scene) AppendTranslated(src Scene, dx, dy, dz float64) {
 }
 
 func (v Vec3) Length() float64 { return math.Sqrt(v.X*v.X + v.Y*v.Y + v.Z*v.Z) }
+
+// Clone returns a deep copy, so translating it never moves the original.
+func (s Scene) Clone() Scene {
+	c := s
+	c.Vertices = append([]Vertex(nil), s.Vertices...)
+	c.Triangles = append([]Triangle(nil), s.Triangles...)
+	c.Materials = append([]Material(nil), s.Materials...)
+	c.Locators = append([]Locator(nil), s.Locators...)
+	return c
+}

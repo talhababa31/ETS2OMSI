@@ -1,4 +1,4 @@
-# ETS2OMSI V2.2.2 — Derleme
+# ETS2OMSI V2.2.3 — Derleme
 
 Gereken: Go 1.23+ (Windows exe'leri Linux/macOS'ta da çapraz derlenebilir).
 

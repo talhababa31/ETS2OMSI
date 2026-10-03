@@ -133,3 +133,60 @@ func writePaintFallback(texDir string, c color.NRGBA, tr *TextureReport) string 
 	}
 	return name
 }
+
+func tintColor(t [3]float64) color.NRGBA {
+	c := func(v float64) uint8 {
+		if v < 0 {
+			v = 0
+		}
+		if v > 1 {
+			v = 1
+		}
+		return uint8(v*255 + .5)
+	}
+	return color.NRGBA{c(t[0]), c(t[1]), c(t[2]), 255}
+}
+
+// bakeTint writes texture × ETS2 diffuse colour as a new PNG next to the
+// original and returns its name. ETS2 traffic cars commonly use a grey/white
+// body texture coloured by the material's diffuse value; OMSI would show it
+// grey without this. Returns "" when the texture cannot be decoded.
+func bakeTint(texDir, tex string, tint [3]float64) string {
+	im, err := decodeTextureFile(filepath.Join(texDir, tex))
+	if err != nil {
+		return ""
+	}
+	tc := tintColor(tint)
+	stem := strings.TrimSuffix(tex, filepath.Ext(tex))
+	name := fmt.Sprintf("%s_t%02x%02x%02x.png", strings.ReplaceAll(stem, " ", "_"), tc.R, tc.G, tc.B)
+	p := filepath.Join(texDir, name)
+	if _, err := os.Stat(p); err == nil {
+		return name
+	}
+	b := im.Bounds()
+	out := image.NewNRGBA(b)
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			c := color.NRGBAModel.Convert(im.At(x, y)).(color.NRGBA)
+			out.SetNRGBA(x, y, color.NRGBA{
+				uint8(float64(c.R) * tint[0]),
+				uint8(float64(c.G) * tint[1]),
+				uint8(float64(c.B) * tint[2]),
+				c.A,
+			})
+		}
+	}
+	f, err := os.Create(p)
+	if err != nil {
+		return ""
+	}
+	err = png.Encode(f, out)
+	if ce := f.Close(); err == nil {
+		err = ce
+	}
+	if err != nil {
+		_ = os.Remove(p)
+		return ""
+	}
+	return name
+}

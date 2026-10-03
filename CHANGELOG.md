@@ -1,5 +1,12 @@
 # Changelog
 
+## V2.2.3 — Boya renkleri ve süspansiyon
+
+- **Boya rengi:** ETS2 trafik arabalarında gövde texture'ı çoğunlukla gri tonludur, rengi materyalin `diffuse` değeri verir. Artık bu renk PIT'ten okunup texture'a işleniyor (gri araba sorunu). Texture bulunamazsa yedek boya da bu renkten yapılıyor.
+- **Look (renk varyasyonu):** PIT'teki Look'lar karıştırılıyordu (son yazılan kazanıyordu). Artık aracın kendi Look'u, yoksa `default`, yoksa ilk Look seçiliyor.
+- **Süspansiyon:** Yay/sönüm değerleri kütleden fiziksel olarak hesaplanıyor (≈2,3 Hz, sönüm oranı 0,45). Eski değerler (1,5 t için 40 kN/m) aracı ~18 cm çöktürüp tekerleri çamurluğa gömüyordu; şimdi ~4,5 cm.
+- **Tekerlek kopyası hatası:** Aynı tekerlek modeli 4 tekerlekte paylaşılırken konumlar ortak veriyi değiştiriyordu; artık her tekerlek kendi kopyasını alıyor.
+
 ## V2.2.2 — Pencere, gerçek 3D görüntüleyici, boya düzeltmesi
 
 - Program artık tarayıcıda değil, kendi penceresinde açılıyor (Edge WebView2). Tarayıcı sadece yedek.

@@ -86,7 +86,7 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 	texDir := PreviewTextureDir(set)
 	_ = os.RemoveAll(texDir)
 	_ = os.MkdirAll(texDir, 0755)
-	bodyHints := pitHints(px.PIT)
+	bodyHints := loadPITMaterials(&sc, px.PIT, vehicleLook(v, main.Look))
 	texRoots := []string{px.WorkDir}
 	b := sc.Bounds()
 	sc.Translate(-(b.Min.X+b.Max.X)/2, -(b.Min.Y+b.Max.Y)/2, 0)

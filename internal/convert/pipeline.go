@@ -25,7 +25,6 @@ import (
 	"ets2omsi/internal/pim"
 	"ets2omsi/internal/pit"
 	"ets2omsi/internal/pixbridge"
-	"ets2omsi/internal/pixtext"
 	"ets2omsi/internal/scanner"
 	"ets2omsi/internal/scene"
 )
@@ -129,7 +128,7 @@ type wheelVisual struct {
 
 func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 	start := time.Now()
-	rep = Report{Version: "V2.2.2", VehicleID: opt.Vehicle.ID, Name: opt.Vehicle.DisplayName, Started: start.Format(time.RFC3339), Status: "failed", Stage: "prepare"}
+	rep = Report{Version: "V2.2.3", VehicleID: opt.Vehicle.ID, Name: opt.Vehicle.DisplayName, Started: start.Format(time.RFC3339), Status: "failed", Stage: "prepare"}
 	defer func() { rep.DurationMS = time.Since(start).Milliseconds() }()
 	if len(opt.Vehicle.Models) == 0 {
 		rep.Stage = "resolve model"
@@ -234,7 +233,9 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 		mr.Triangles = len(sc.Triangles)
 		mr.Materials = len(sc.Materials)
 		rep.Models = append(rep.Models, mr)
-		converted = append(converted, convertedModel{source: mp, role: role, variant: asset.Variant, look: asset.Look, o3dName: o3n, sc: sc, pix: px, hints: pitHints(px.PIT)})
+		look := vehicleLook(opt.Vehicle, asset.Look)
+		hints := loadPITMaterials(&sc, px.PIT, look)
+		converted = append(converted, convertedModel{source: mp, role: role, variant: asset.Variant, look: look, o3dName: o3n, sc: sc, pix: px, hints: hints})
 	}
 	if len(converted) == 0 {
 		rep.Stage = "decode PMD/PMG"
@@ -624,9 +625,11 @@ func resolveWheelVisuals(ctx context.Context, exe string, mounts []string, v sca
 		if r > .05 && r < 2.5 {
 			radii[pl.Slot] = r
 		}
-		placed := wsc
+		// Deep copy: the cached wheel scene is shared by all four slots.
+		placed := wsc.Clone()
 		placed.Translate(pl.Pos.X, pl.Pos.Y, pl.Pos.Z)
-		visuals = append(visuals, wheelVisual{Slot: pl.Slot, Pos: pl.Pos, Radius: r, Scene: placed, Pix: cw.pix})
+		hints := loadPITMaterials(&placed, cw.pix.PIT, att.Look)
+		visuals = append(visuals, wheelVisual{Slot: pl.Slot, Pos: pl.Pos, Radius: r, Scene: placed, Pix: cw.pix, Hints: hints})
 	}
 	if len(v.WheelAttachments) > 0 && len(visuals) == 0 {
 		warnings = append(warnings, "wheel accessories were detected but no wheel model could be resolved; body conversion is kept intact")
@@ -938,47 +941,7 @@ func mergeHints(dst, src map[string][]string) {
 // become an OMSI diffuse texture. Doing so caused legacy head/rear lamp textures
 // and wheel materials to appear swapped or nonsensical.
 func pitHints(file string) map[string][]string {
-	secs, e := pixtext.ParseFile(file)
-	if e != nil {
-		return nil
-	}
-	out := map[string][]string{}
-	var walk func(*pixtext.Section)
-	walk = func(s *pixtext.Section) {
-		if strings.EqualFold(s.Name, "Material") {
-			alias := strings.ToLower(strings.TrimSpace(pixtext.First(s, "Alias")))
-			type pair struct{ tag, val string }
-			all := []pair{}
-			primary := []string{}
-			for _, t := range pixtext.Children(s, "Texture") {
-				tag := strings.ToLower(strings.TrimSpace(pixtext.First(t, "Tag")))
-				val := strings.TrimSpace(pixtext.First(t, "Value"))
-				if val == "" {
-					continue
-				}
-				all = append(all, pair{tag, val})
-				if isVisibleBaseTextureTag(tag) {
-					primary = append(primary, val)
-				}
-			}
-			// Some very old traffic materials expose only one texture without a
-			// modern texture_base tag. Accept it only when the tag is not clearly
-			// a normal/mask/spec/reflection helper.
-			if len(primary) == 0 && len(all) == 1 && !isNonDiffuseTextureTag(all[0].tag) {
-				primary = append(primary, all[0].val)
-			}
-			if alias != "" && len(primary) > 0 {
-				out[alias] = uniqueStringsLocal(primary)
-			}
-		}
-		for _, c := range s.Children {
-			walk(c)
-		}
-	}
-	for _, s := range secs {
-		walk(s)
-	}
-	return out
+	return pitHintsFromMaterials(pitLookMaterials(file, ""))
 }
 
 func isVisibleBaseTextureTag(tag string) bool {
@@ -1189,6 +1152,14 @@ func applyMaterials(sc *scene.Scene, hints map[string][]string, index map[string
 			}
 		} else {
 			tr.ExactResolved++
+			if m.HasTint {
+				// Bake the ETS2 diffuse colour into the texture (grey body
+				// textures are coloured by it in ETS2).
+				if baked := bakeTint(texDir, tex, m.Tint); baked != "" {
+					tex = baked
+					m.HasTint = false
+				}
+			}
 		}
 		m.Texture = tex
 	}
@@ -1223,6 +1194,14 @@ func applySafeMaterialFallbacks(sc *scene.Scene, unresolved []string, texDir str
 		if isPaintLikeClass(class) {
 			name = "fallback_body.png"
 			class = "body"
+			if m.HasTint {
+				// The material's own ETS2 paint colour is the best evidence.
+				if n := writePaintFallback(texDir, tintColor(m.Tint), tr); n != "" {
+					m.Texture = n
+					m.HasTint = false
+					continue
+				}
+			}
 			if !paintKnown {
 				paintKnown = true
 				paint, havePaint = scenePaintColor(sc, texDir)
@@ -1346,6 +1325,11 @@ func toO3D(sc scene.Scene) o3d.Model {
 	}
 	for _, x := range sc.Materials {
 		d := [4]float32{1, 1, 1, 1}
+		if x.HasTint {
+			// Tint that could not be baked into a texture: let OMSI's
+			// material diffuse colour carry it.
+			d = [4]float32{float32(x.Tint[0]), float32(x.Tint[1]), float32(x.Tint[2]), 1}
+		}
 		// Working OMSI references keep O3D diffuse alpha opaque and let
 		// [matl_alpha] + the image alpha channel drive glass transparency.
 		spec := [3]float32{.25, .25, .25}
@@ -1624,7 +1608,7 @@ func listRelative(root string) []string {
 }
 
 func textReport(r Report) string {
-	return fmt.Sprintf("ETS2OMSI V2.2.2 Conversion Report\r\nVehicle: %s\r\nStatus: %s\r\nOutput: %s\r\nModels: %d\r\nTextures copied: %d\r\nExact texture bindings: %d\r\nOn-demand package textures: %d\r\nUnresolved visible textures: %d\r\nDimensions LxWxH: %.3f x %.3f x %.3f m\r\nO3D XYZ dims: %.3f x %.3f x %.3f m\r\nOrientation: %t\r\nGround: %t\r\nWheel meshes: %d\r\nWheel basis: %s\r\nWarnings: %d\r\nErrors: %d\r\n", r.Name, r.Status, r.Output, len(r.Models), r.Textures.Copied, r.Textures.ExactResolved, r.Textures.OnDemandResolved, len(r.Textures.Unresolved), r.Auto.Length, r.Auto.Width, r.Auto.Height, r.Validation.O3DDimensions[0], r.Validation.O3DDimensions[1], r.Validation.O3DDimensions[2], r.Validation.OrientationOK, r.Validation.GroundOK, r.Validation.WheelMeshes, r.Auto.WheelBasis, len(r.Warnings), len(r.Errors))
+	return fmt.Sprintf("ETS2OMSI V2.2.3 Conversion Report\r\nVehicle: %s\r\nStatus: %s\r\nOutput: %s\r\nModels: %d\r\nTextures copied: %d\r\nExact texture bindings: %d\r\nOn-demand package textures: %d\r\nUnresolved visible textures: %d\r\nDimensions LxWxH: %.3f x %.3f x %.3f m\r\nO3D XYZ dims: %.3f x %.3f x %.3f m\r\nOrientation: %t\r\nGround: %t\r\nWheel meshes: %d\r\nWheel basis: %s\r\nWarnings: %d\r\nErrors: %d\r\n", r.Name, r.Status, r.Output, len(r.Models), r.Textures.Copied, r.Textures.ExactResolved, r.Textures.OnDemandResolved, len(r.Textures.Unresolved), r.Auto.Length, r.Auto.Width, r.Auto.Height, r.Validation.O3DDimensions[0], r.Validation.O3DDimensions[1], r.Validation.O3DDimensions[2], r.Validation.OrientationOK, r.Validation.GroundOK, r.Validation.WheelMeshes, r.Auto.WheelBasis, len(r.Warnings), len(r.Errors))
 }
 
 func fileExists(p string) bool {
@@ -1657,4 +1641,18 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// vehicleLook picks the ETS2 look for a model: the asset's own look, else the
+// first look the traffic definition lists, else "" (PIT default/first look).
+func vehicleLook(v scanner.Vehicle, assetLook string) string {
+	if l := strings.TrimSpace(assetLook); l != "" {
+		return l
+	}
+	for _, l := range v.Looks {
+		if l = strings.TrimSpace(l); l != "" {
+			return l
+		}
+	}
+	return ""
 }

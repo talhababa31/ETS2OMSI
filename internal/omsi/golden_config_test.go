@@ -1,6 +1,7 @@
 package omsi
 
 import (
+	"math"
 	"strings"
 	"testing"
 )
@@ -50,5 +51,29 @@ func TestOVHPhysicsFormattingHasNoMissingArgs(t *testing.T) {
 	}
 	if !strings.Contains(s, "[mass]\n1.5500") {
 		t.Fatalf("physics mass not emitted:\n%s", s)
+	}
+}
+
+func TestSuspensionStaticSagIsSmall(t *testing.T) {
+	for _, mass := range []float64{0.9, 1.5, 2.5} {
+		s := SuspensionFor(mass)
+		front := mass * frontLoadShare * gravity / s.FrontSpring
+		rear := mass * (1 - frontLoadShare) * gravity / s.RearSpring
+		for _, sag := range []float64{front, rear} {
+			if sag < .025 || sag > .065 {
+				t.Fatalf("mass %.1f: static sag %.3f m outside 2.5-6.5 cm (%+v)", mass, sag, s)
+			}
+		}
+		if s.FrontMaxForce < 3*mass*frontLoadShare*gravity {
+			t.Fatalf("max force too low: %+v", s)
+		}
+		zeta := s.FrontDamper / (2 * math.Sqrt(s.FrontSpring*mass*frontLoadShare))
+		if zeta < .3 || zeta > .7 {
+			t.Fatalf("damping ratio %.2f", zeta)
+		}
+	}
+	ovh := OVH(VehicleSpec{Name: "x", Type: "car", Physics: PhysicsProfile{Mass: 1.5}})
+	if !strings.Contains(ovh, "achse_feder\n") || strings.Contains(ovh, "achse_feder\n40.00") {
+		t.Fatalf("old soft spring still emitted:\n%s", ovh)
 	}
 }
