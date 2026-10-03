@@ -4,7 +4,7 @@
 
 **Euro Truck Simulator 2 trafik araçlarını OMSI 2 AI araçlarına dönüştürür.**
 
-[![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-2.6.0-8CF03C?style=for-the-badge&labelColor=202328)](CHANGELOG.md)
+[![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-2.7.0-8CF03C?style=for-the-badge&labelColor=202328)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-8CF03C?style=for-the-badge&labelColor=202328)](#indirme)
 [![Hedef](https://img.shields.io/badge/hedef-OMSI%202-8CF03C?style=for-the-badge&labelColor=202328)](#nasıl-çalışır)
 [![Go](https://img.shields.io/badge/Go-1.23%2B-8CF03C?style=for-the-badge&logo=go&logoColor=8CF03C&labelColor=202328)](BUILD.md)
@@ -34,6 +34,8 @@ ETS2OMSI, tek bir ETS2 trafik paketindeki (`.scs`) otomobilleri tarar ve her bir
 - **ETS2 boya renkleri** — materyal `diffuse` rengi ve seçili renk varyasyonu (Look) texture'a işlenir.
 - **Materyal teşhis listesi** — her parçanın texture'ının nereden geldiği ya da neden bulunamadığı gösterilir ve dışa aktarılabilir.
 - **Renk çeşitleri** — her araç ETS2'deki ek renkleri ve seçilen palet renkleriyle ayrı OMSI araçları olarak çıkar; trafik tek renk olmaz.
+- **Çalışan ışıklar** — farlar, arka/stop lambaları ve sinyaller OMSI AI değişkenlerine bağlı; lamba camları gece parlar.
+- **Plakalar** — Türk veya Alman tipi, her araca sabit rastgele numaralı plaka texture'ı.
 - **Araç sınıfı** — sedan, hatchback, kombi, coupe, SUV, pickup, van, minibüs otomatik bulunur ya da elle seçilir; fizik ve AI hızı sınıfa göre ayarlanır.
 - **Eksik tekerlek üretimi** — tekerlek modeli olmayan araçlara (ör. panelvanlar) jant ve lastik üretilir.
 - **OMSI uyumlu çıktı** — doğru eksenler, tekerlek temas noktasına göre zemin, ayrı ve animasyonlu tekerlekler, kütleden hesaplanan süspansiyon.
@@ -131,6 +133,6 @@ Derleme ayrıntıları: [BUILD.md](BUILD.md)
 
 - [ConverterPIX](https://github.com/mwl4/ConverterPIX) (LGPL-3.0) — ETS2 ikili modellerini çözmek için ayrı bir araç olarak kullanılır.
 - Kütüphaneler: [go-webview2](https://github.com/jchv/go-webview2).
-- Logo ve marka dosyaları: [`assets/brand`](assets/brand) (SVG, PNG, ICO, paylaşım görseli). Yazı tipi: [Anton](https://fonts.google.com/specimen/Anton) (SIL OFL 1.1).
+- Logo ve marka dosyaları: [`assets/brand`](assets/brand) (PNG, ICO, paylaşım görseli).
 
 ETS2OMSI; ETS2, DLC, mod araç dosyaları veya OMSI içeriği dağıtmaz. Ayrıntı: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)

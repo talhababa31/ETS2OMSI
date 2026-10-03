@@ -39,7 +39,7 @@ type appState struct {
 
 var current appState
 
-const appVersion = "V2.6.0"
+const appVersion = "V2.7.0"
 
 var (
 	logPath     string
@@ -108,6 +108,10 @@ func main() {
 	mux.HandleFunc("/api/colors", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"palette": conv.PaintPalette, "default": conv.DefaultPaintColors})
 	})
+	mux.HandleFunc("/api/plates", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"styles": conv.PlateStyles, "default": conv.DefaultPlateStyle})
+	})
+	mux.HandleFunc("/api/plate-sample", plateSampleAPI)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Println(err)
@@ -263,12 +267,25 @@ func ensureConverterPIX(ctx context.Context) (string, error) {
 	return st.Path, nil
 }
 
+// plateSampleAPI serves the example plate of a style for the settings strip.
+func plateSampleAPI(w http.ResponseWriter, r *http.Request) {
+	b, err := conv.PlateSamplePNG(r.URL.Query().Get("style"))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "max-age=3600")
+	_, _ = w.Write(b)
+}
+
 func convertAPI(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDs        []string          `json:"ids"`
 		OutputRoot string            `json:"output_root"`
 		Classes    map[string]string `json:"classes"` // vehicle id -> class (manual override)
 		Colors     []string          `json:"colors"`  // palette colour ids; nil = default, ["none"] = none
+		PlateStyle string            `json:"plate_style"`
 	}
 	if e := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2<<20)).Decode(&req); e != nil {
 		http.Error(w, e.Error(), 400)
@@ -310,7 +327,7 @@ func convertAPI(w http.ResponseWriter, r *http.Request) {
 			out = append(out, item{ID: id, Error: "araç mevcut taramada bulunamadı"})
 			continue
 		}
-		rp, e := conv.Vehicle(ctx, conv.Options{Vehicle: v, MountPaths: []string{p.Options.PackagePath}, ConverterPIX: pix, OutputRoot: req.OutputRoot, StrictFidelity: false, Class: req.Classes[id], Colors: req.Colors})
+		rp, e := conv.Vehicle(ctx, conv.Options{Vehicle: v, MountPaths: []string{p.Options.PackagePath}, ConverterPIX: pix, OutputRoot: req.OutputRoot, StrictFidelity: false, Class: req.Classes[id], Colors: req.Colors, PlateStyle: req.PlateStyle})
 		it := item{ID: id, Name: v.DisplayName, Report: rp}
 		if e != nil {
 			it.Error = e.Error()

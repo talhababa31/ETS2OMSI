@@ -79,7 +79,7 @@ func TestExportColorVariantsWritesOVHs(t *testing.T) {
 	cm := convertedModel{o3dName: "body.o3d", sc: scene.Scene{Materials: []scene.Material{{Alias: "mat_0000_body", Texture: "body.dds"}}}}
 	spec := omsi.VehicleSpec{Name: "Car", Type: "car", Materials: materialOverrides(cm.sc)}
 	r := newTextureResolver(nil, tex)
-	vs, w := exportColorVariants(stage, spec, []convertedModel{cm}, r, newOpaqueFixer(tex), tex, []string{"siyah", "lacivert", "yok"})
+	vs, w := exportColorVariants(stage, spec, []convertedModel{cm}, r, newOpaqueFixer(tex), nil, tex, []string{"siyah", "lacivert", "yok"})
 	if len(vs) != 2 || len(w) != 0 {
 		t.Fatalf("variants=%+v warnings=%v", vs, w)
 	}
@@ -103,7 +103,7 @@ func TestExportColorVariantsWritesOVHs(t *testing.T) {
 			t.Fatalf("variant O3D texture: err=%v mats=%+v", err, m.Materials)
 		}
 	}
-	if vs, _ := exportColorVariants(stage, spec, []convertedModel{cm}, r, newOpaqueFixer(tex), tex, []string{"none"}); len(vs) != 0 {
+	if vs, _ := exportColorVariants(stage, spec, []convertedModel{cm}, r, newOpaqueFixer(tex), nil, tex, []string{"none"}); len(vs) != 0 {
 		t.Fatalf("none must disable palette: %+v", vs)
 	}
 }

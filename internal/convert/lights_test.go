@@ -269,7 +269,7 @@ func TestColorVariantsKeepLightsAndGlow(t *testing.T) {
 	ls, _ := detectLights(sc)
 	cm := convertedModel{o3dName: "body.o3d", sc: sc}
 	spec := omsi.VehicleSpec{Name: "Car", Type: "car", Materials: materialOverrides(sc), Lights: ls}
-	vs, _ := exportColorVariants(stage, spec, []convertedModel{cm}, newTextureResolver(nil, tex), newOpaqueFixer(tex), tex, []string{"siyah"})
+	vs, _ := exportColorVariants(stage, spec, []convertedModel{cm}, newTextureResolver(nil, tex), newOpaqueFixer(tex), nil, tex, []string{"siyah"})
 	if len(vs) != 1 {
 		t.Fatalf("variants %+v", vs)
 	}

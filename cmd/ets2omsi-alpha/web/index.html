@@ -4,15 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ETS2 → OMSI 2 AI Converter V2</title>
-  <link rel="icon" type="image/svg+xml" href="logo.svg" />
+  <link rel="icon" type="image/png" href="logo.png" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <div class="noise"></div>
 <div class="app-shell">
   <header class="topbar glass">
-    <div class="brand"><img class="brand-mark" src="logo.svg" alt="ETS2OMSI"><div><div class="eyebrow">ETS2 → OMSI 2</div><h1>ETS2OMSI</h1></div></div>
-    <div class="top-actions"><span id="toolBadge" class="badge neutral">3D Engine · otomatik</span><span class="badge">V2.6.0</span><button id="themeToggle" class="icon-button" title="Tema">◐</button><button id="quitBtn" class="icon-button" title="Programı kapat">⏻</button></div>
+    <div class="brand"><img class="brand-mark" src="logo.png" alt="ETS2OMSI"><div><div class="eyebrow">ETS2 → OMSI 2</div><h1>ETS2OMSI</h1></div></div>
+    <div class="top-actions"><span id="toolBadge" class="badge neutral">3D Engine · otomatik</span><span class="badge">V2.7.0</span><button id="themeToggle" class="icon-button" title="Tema">◐</button><button id="quitBtn" class="icon-button" title="Programı kapat">⏻</button></div>
   </header>
 
   <main>
@@ -32,6 +32,7 @@
     <section class="settings-strip card v2-settings">
       <div class="setting-block grow"><label>Çıktı klasörü</label><div class="inline-field"><input id="outputRoot" placeholder="Boş bırakırsan output klasörü"><button id="pickOutput" class="mini">Seç</button></div><small>Her otomobil ayrı OMSI vehicle klasörüne yazılır.</small></div>
       <div class="setting-block color-block"><label>Renk çeşitleri (trafikte farklı renkler)</label><div id="colorSettings" class="chips"></div><small id="colorCount"></small></div>
+      <div class="setting-block plate-block"><label>Plaka</label><div id="plateSettings" class="chips"></div><small id="plateNote"></small></div>
       <div class="v2-rule"><b>SCS ONLY</b><span>ETS2 kurulumu kullanılmaz.</span></div>
       <div class="v2-rule"><b>CAR ONLY</b><span>Tır ve otobüs listelenmez.</span></div>
       <div class="v2-rule"><b>EXTERIOR ONLY</b><span>İç mekan / oyuncu sistemi yok.</span></div>
@@ -78,7 +79,7 @@
 
     <section id="errorBox" class="error-box card hidden"></section>
   </main>
-  <footer><span>ETS2OMSI V2.6.0</span><span>SCS-only · AI cars · exterior model · OMSI OVH</span></footer>
+  <footer><span>ETS2OMSI V2.7.0</span><span>SCS-only · AI cars · exterior model · OMSI OVH</span></footer>
 </div>
 <script src="viewer.js"></script>
 <script src="app.js"></script>

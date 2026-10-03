@@ -394,6 +394,7 @@ type ColorVariant struct {
 	OVH   string `json:"ovh"`
 	Kind  string `json:"kind"` // look | paint
 	Hex   string `json:"hex,omitempty"`
+	Plate string `json:"plate,omitempty"` // registration on this variant's plates
 }
 
 // colorVariantSet holds the recoloured scenes of one variant. OMSI's [matl]
@@ -449,7 +450,7 @@ func sameOverrides(a, b []omsi.MaterialOverride) bool {
 // exportColorVariants writes one .ovh + model cfg per extra ETS2 look and per
 // palette colour. colors: palette ids (nil = DefaultPaintColors, ["none"] = no
 // palette variants).
-func exportColorVariants(stage string, spec omsi.VehicleSpec, converted []convertedModel, resolver *textureResolver, opaque *opaqueFixer, texDir string, colors []string) ([]ColorVariant, []string) {
+func exportColorVariants(stage string, spec omsi.VehicleSpec, converted []convertedModel, resolver *textureResolver, opaque *opaqueFixer, plates *plateMaker, texDir string, colors []string) ([]ColorVariant, []string) {
 	var sets []colorVariantSet
 	warnings := []string{}
 	if len(converted) == 0 {
@@ -474,6 +475,14 @@ func exportColorVariants(stage string, spec omsi.VehicleSpec, converted []conver
 		if set.body == nil || sameOverrides(materialOverrides(*set.body), spec.Materials) {
 			return
 		}
+		// Every variant is its own car in traffic: it gets its own
+		// registration (after the comparison, which a new plate would fool).
+		for _, sc := range append([]*scene.Scene{set.body}, set.lods...) {
+			if sc != nil {
+				plates.retexture(sc, v.ID)
+			}
+		}
+		set.variant.Plate = plates.text(v.ID)
 		sets = append(sets, set)
 	}
 
@@ -494,9 +503,10 @@ func exportColorVariants(stage string, spec omsi.VehicleSpec, converted []conver
 			idx, _ := resolver.prepareScene(&clone, hints, cm.o3dName)
 			tr := TextureReport{}
 			w := []string{}
-			if un := applyMaterials(&clone, hints, idx, texDir, &tr, &w); len(un) > 0 {
+			if un := plates.handled(applyMaterials(&clone, hints, idx, texDir, &tr, &w)); len(un) > 0 {
 				applySafeMaterialFallbacks(&clone, un, texDir, &tr, &w)
 			}
+			plates.retexture(&clone, "")
 			opaque.fixScene(&clone)
 			return clone
 		})

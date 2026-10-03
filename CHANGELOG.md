@@ -2,6 +2,18 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr-TR/1.1.0/) esas alınarak hazırlanmıştır.
 
+## [2.7.0] — 2026-10-03
+
+### Eklendi
+- **Çalışan ışıklar:** farlar ve arka lambalar `AI_Light`, stop lambaları `AI_Brakelight`, sinyaller `lights_blinker_l/r` ile; konumlar ETS2 ışık locator'larından, yoksa lamba materyallerinden. Lamba camları `[matl_change]` + `[matl_nightmap]` ile parlar. Geri vites lambası dışa aktarılmaz (AI araçlar için değişken yok).
+- **Plakalar:** plaka materyallerine Türk (TR) veya Alman (D) tipi, araç ve renk başına sabit rastgele numaralı plaka texture'ı; ayarlardan plaka tipi seçilir.
+
+### Düzeltildi
+- `[matl]` örnek numarası aynı texture'ı kullanan materyallere göre sayılıyor; `[matl_alpha]` artık ilk materyal dışındakilerde de etkili (cam, gizli yüzeyler, çıkartmalar).
+
+### Değişti
+- Yeni logo (`assets/brand`).
+
 ## [2.6.0] — 2026-10-03
 
 ### Düzeltildi

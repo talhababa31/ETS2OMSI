@@ -77,12 +77,12 @@ async function convertSelected(){
   const run={ids,out,items:[],cancel:false,start:Date.now()};exportRun=run;
   $('#conversionPanel').classList.remove('hidden');$('#exportProgress').classList.remove('hidden');$('#exportCancel').classList.remove('hidden');$('#exportSummary').classList.add('hidden');
   $('#conversionList').innerHTML='';$('#conversionState').textContent='Dönüştürülüyor…';$('#conversionState').className='state-pill info';
-  $('#exportSub').textContent=`${ids.length} araç · ${colors[0]==='none'?'sadece orijinal renk':`orijinal + ${colors.length} renk`} · çıktı: ${out}`;
+  $('#exportSub').textContent=`${ids.length} araç · ${colors[0]==='none'?'sadece orijinal renk':`orijinal + ${colors.length} renk`} · plaka: ${plateLabel(plateStyle)} · çıktı: ${out}`;
   $('#conversionPanel').scrollIntoView({behavior:'smooth',block:'start'});$('#convertBtn').disabled=true;$('#convertBtn').textContent='Dönüştürülüyor…';
   for(let n=0;n<ids.length;n++){
     if(run.cancel)break;const id=ids[n],v=(report.vehicles||[]).find(x=>x.id===id);
     updateProgress(run,n,v?.display_name||id);
-    let item;try{const d=await post('/api/convert',{ids:[id],output_root:out,classes,colors});item=(d.items||[])[0]||{id,error:'boş yanıt'}}catch(e){item={id,name:v?.display_name,error:e.message}}
+    let item;try{const d=await post('/api/convert',{ids:[id],output_root:out,classes,colors,plate_style:plateStyle});item=(d.items||[])[0]||{id,error:'boş yanıt'}}catch(e){item={id,name:v?.display_name,error:e.message}}
     run.items.push(item);$('#conversionList').insertAdjacentHTML('beforeend',exportCard(item,run.items.length-1));bindCard(run.items.length-1);
   }
   updateProgress(run,run.items.length,'');$('#exportProgress').classList.add('hidden');$('#exportCancel').classList.add('hidden');
@@ -95,6 +95,7 @@ function updateProgress(run,done,name){
 }
 const LIGHT_TR={head:'far',tail:'arka',brake:'fren',blinker:'sinyal'};
 function lightFact(a){const k=a.light_kinds||{},t=Object.keys(LIGHT_TR).filter(x=>k[x]).map(x=>`${LIGHT_TR[x]} ${k[x]}`).concat(a.lamp_glow_materials?[`${a.lamp_glow_materials} lamba camı yanar`]:[]).join(' · ');return a.lights?`<span class="fact" title="${esc(t)}">Işık ${a.lights}</span>`:`<span class="fact warn" title="${esc(a.light_basis||'')}">Işık yok</span>`}
+function plateFact(a,cols){if(!a.plate)return'';const t=[`Orijinal: ${a.plate}`].concat(cols.filter(c=>c.plate).map(c=>`${c.label}: ${c.plate}`)).join(' · ');return`<span class="fact" title="${esc(t)}">Plaka ${esc(a.plate)}</span>`}
 function itemState(x){const r=x.report||{};if(x.error||r.status==='fail')return'bad';return r.status==='warn'?'warn':'ok'}
 function exportCard(x,i){
   const r=x.report||{},st=itemState(x),a=r.automation||{},val=r.validation||{},tex=r.textures||{};
@@ -104,7 +105,7 @@ function exportCard(x,i){
   const facts=st==='bad'?`<span class="fact bad">Aşama: ${esc(r.stage||'dönüşüm')}</span>`:[
     a.vehicle_class?`<span class="fact">${esc(classLabel(a.vehicle_class))}${a.class_basis?` <small>(${esc(a.class_basis)})</small>`:''}</span>`:'',
     `<span class="fact">${dots} ${cols.length+1} renk</span>`,
-    `<span class="fact">Teker ${val.wheel_meshes||0}/4</span>`,lightFact(a),
+    `<span class="fact">Teker ${val.wheel_meshes||0}/4</span>`,lightFact(a),plateFact(a,cols),
     `<span class="fact">${tex.copied||0} texture</span>`,
     a.estimated_mass_t?`<span class="fact">${a.estimated_mass_t} t</span>`:''].join('');
   const label={ok:'OMSI HAZIR',warn:'UYARILI',bad:'HATA'}[st];
@@ -176,3 +177,9 @@ function renderColorSettings(){const box=$('#colorSettings');if(!box)return;
 api('/api/colors').then(x=>{paletteColors=x.palette||[];let saved=null;try{saved=JSON.parse(localStorage.getItem('ets2omsi.colors')||'null')}catch(e){};selectedColors=Array.isArray(saved)?saved:(x.default||[]);renderColorSettings()}).catch(()=>{});
 
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='exportCancel'&&exportRun){exportRun.cancel=true;e.target.textContent='Durduruluyor…'}});
+var plateStyles=[],plateStyle='tr';function plateLabel(id){return(plateStyles.find(p=>p.id===id)||{}).label||id}
+function renderPlateSettings(){const box=$('#plateSettings');if(!box)return;
+  box.innerHTML=plateStyles.map(p=>`<button class="chip plate-chip ${plateStyle===p.id?'on':''}" data-id="${esc(p.id)}" title="${esc(p.example||'Plaka boş kalır')}"><img src="/api/plate-sample?style=${encodeURIComponent(p.id)}" alt="">${esc(p.label)}</button>`).join('');
+  box.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{plateStyle=b.dataset.id;try{localStorage.setItem('ets2omsi.plate',plateStyle)}catch(e){};renderPlateSettings()});
+  const n=$('#plateNote'),cur=plateStyles.find(p=>p.id===plateStyle);if(n)n.textContent=plateStyle==='none'?'Plakalar boş kalır.':`Her araca ve her renk çeşidine sabit, rastgele bir ${cur?.label||''} plakası yazılır (örnek: ${cur?.example||''}).`}
+api('/api/plates').then(x=>{plateStyles=x.styles||[];let saved=null;try{saved=localStorage.getItem('ets2omsi.plate')}catch(e){};plateStyle=plateStyles.some(p=>p.id===saved)?saved:(x.default||'tr');renderPlateSettings()}).catch(()=>{});
