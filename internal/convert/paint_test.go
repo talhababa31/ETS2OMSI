@@ -1,6 +1,7 @@
 package convert
 
 import (
+	"bytes"
 	"image"
 	"image/color"
 	"image/png"
@@ -65,5 +66,31 @@ func TestBodyFallbackWithoutInfoIsNotBlack(t *testing.T) {
 	}
 	if c := color.NRGBAModel.Convert(im.At(0, 0)).(color.NRGBA); c.R < 150 {
 		t.Fatalf("body fallback too dark: %v", c)
+	}
+}
+
+func TestPreviewTexturePNGDecodesDDS(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("LOCALAPPDATA", t.TempDir())
+	set := PreviewTextureSetID("traffic.test", "final")
+	dir := PreviewTextureDir(set)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile("../dds/testdata/dxt1.dds")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(dir, "body.dds"), b, 0644)
+	out, err := PreviewTexturePNG(set, "body.dds")
+	if err != nil {
+		t.Fatal(err)
+	}
+	im, err := png.Decode(bytes.NewReader(out))
+	if err != nil || im.Bounds().Dx() != 64 {
+		t.Fatalf("png err=%v", err)
+	}
+	if _, err := PreviewTexturePNG(set, "../../etc/passwd"); err == nil {
+		t.Fatal("path traversal must fail")
 	}
 }

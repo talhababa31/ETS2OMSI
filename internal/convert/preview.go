@@ -1,9 +1,12 @@
 package convert
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image/png"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"ets2omsi/internal/pixbridge"
@@ -12,9 +15,11 @@ import (
 )
 
 type PreviewMaterial struct {
-	Name  string     `json:"name"`
-	Class string     `json:"class"`
-	Color [3]float64 `json:"color"`
+	Name    string     `json:"name"`
+	Class   string     `json:"class"`
+	Color   [3]float64 `json:"color"`
+	Texture string     `json:"texture,omitempty"` // file name inside the preview texture set
+	Alpha   bool       `json:"alpha,omitempty"`
 }
 type PreviewData struct {
 	VehicleID         string            `json:"vehicle_id"`
@@ -22,6 +27,8 @@ type PreviewData struct {
 	Mode              string            `json:"mode"`
 	Positions         []float32         `json:"positions"`
 	Normals           []float32         `json:"normals"`
+	UVs               []float32         `json:"uvs"`
+	TextureSet        string            `json:"texture_set,omitempty"`
 	Indices           []uint32          `json:"indices"`
 	TriangleMaterials []uint16          `json:"triangle_materials"`
 	Materials         []PreviewMaterial `json:"materials"`
@@ -75,6 +82,12 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 	if mode != "final" {
 		mode = "source"
 	}
+	set := PreviewTextureSetID(v.ID, mode)
+	texDir := PreviewTextureDir(set)
+	_ = os.RemoveAll(texDir)
+	_ = os.MkdirAll(texDir, 0755)
+	bodyHints := pitHints(px.PIT)
+	texRoots := []string{px.WorkDir}
 	b := sc.Bounds()
 	sc.Translate(-(b.Min.X+b.Max.X)/2, -(b.Min.Y+b.Max.Y)/2, 0)
 	if mode == "final" && len(v.WheelAttachments) > 0 {
@@ -82,7 +95,19 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 		wheels, _ := detectWheels(sc, radii)
 		g := groundPlane(sc, wheels)
 		sc.Translate(0, 0, -g)
+		hints := map[string][]string{}
+		mergeHints(hints, bodyHints)
 		for i := range wv {
+			if wv[i].Hints == nil {
+				wv[i].Hints = pitHints(wv[i].Pix.PIT)
+			}
+			mergeHints(hints, wv[i].Hints)
+			texRoots = append(texRoots, wv[i].Pix.WorkDir)
+		}
+		index := previewTextures(ctx, exe, mounts, hints, texRoots, work, texDir)
+		previewMaterials(&sc, bodyHints, index, texDir)
+		for i := range wv {
+			previewMaterials(&wv[i].Scene, wv[i].Hints, index, texDir)
 			wv[i].Scene.Translate(0, 0, -g)
 			sc.AppendTranslated(wv[i].Scene, 0, 0, 0)
 		}
@@ -91,15 +116,18 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 		// Source preview remains simple but upright in internal coordinates.
 		bb := sc.Bounds()
 		sc.Translate(0, 0, -bb.Min.Z)
+		index := previewTextures(ctx, exe, mounts, bodyHints, texRoots, work, texDir)
+		previewMaterials(&sc, bodyHints, index, texDir)
 	}
 	p := previewFromScene(v, sc)
+	p.TextureSet = set
 	p.Mode = mode
 	p.TrianglesOriginal = original
 	p.WheelVisuals = visuals
 	if mode == "final" {
-		p.Note = "FINAL geometry preview: Passat-calibrated ground/origin + separate wheel accessory composition. Material colors are diagnostic; exported O3D uses exact texture references."
+		p.Note = "FINAL preview: OMSI ground/origin, separate wheels and the same textures/fallbacks the OMSI export uses."
 	} else {
-		p.Note = "SOURCE geometry preview generated from ConverterPIX PIM after the selected ETS2 variant filter."
+		p.Note = "SOURCE preview: ETS2 body model after the selected variant filter, with the textures the OMSI export uses."
 	}
 	return p, nil
 }
@@ -109,12 +137,13 @@ func previewFromScene(v scanner.Vehicle, sc scene.Scene) PreviewData {
 	p.Width, p.Length, p.Height = b.Width(), b.Length(), b.Height()
 	for _, m := range sc.Materials {
 		cl := materialClass(m)
-		p.Materials = append(p.Materials, PreviewMaterial{Name: m.Alias, Class: cl, Color: classColor(cl)})
+		p.Materials = append(p.Materials, PreviewMaterial{Name: m.Alias, Class: cl, Color: classColor(cl), Texture: m.Texture, Alpha: m.Alpha})
 	}
 	if len(p.Materials) == 0 {
 		p.Materials = append(p.Materials, PreviewMaterial{Name: "default", Class: "body", Color: classColor("body")})
 	}
-	maxTri := 30000
+	// Full detail: skipping triangles punched visible holes into the car.
+	maxTri := 400000
 	step := 1
 	if len(sc.Triangles) > maxTri {
 		step = (len(sc.Triangles) + maxTri - 1) / maxTri
@@ -129,6 +158,7 @@ func previewFromScene(v scanner.Vehicle, sc scene.Scene) PreviewData {
 		vv := sc.Vertices[i]
 		p.Positions = append(p.Positions, float32(vv.Position.X), float32(vv.Position.Y), float32(vv.Position.Z))
 		p.Normals = append(p.Normals, float32(vv.Normal.X), float32(vv.Normal.Y), float32(vv.Normal.Z))
+		p.UVs = append(p.UVs, float32(vv.UV.X), float32(vv.UV.Y))
 		return x
 	}
 	for i := 0; i < len(sc.Triangles); i += step {
@@ -169,4 +199,67 @@ func classColor(c string) [3]float64 {
 	default:
 		return [3]float64{.62, .64, .68}
 	}
+}
+
+// PreviewTextureSetID is a filesystem-safe id for one vehicle preview.
+func PreviewTextureSetID(vehicleID, mode string) string {
+	return shortHash(vehicleID+"|"+mode) + "_" + mode
+}
+
+// PreviewTextureDir is where the preview's resolved textures are kept so the
+// UI can request them after the preview call returns.
+func PreviewTextureDir(set string) string {
+	base := os.TempDir()
+	if d, err := os.UserCacheDir(); err == nil && d != "" {
+		base = d
+	}
+	return filepath.Join(base, "ETS2OMSI", "preview", filepath.Base(set))
+}
+
+// previewTextures resolves texture hints exactly like the conversion pipeline
+// and copies the result into texDir; it returns the lookup index.
+func previewTextures(ctx context.Context, exe string, mounts []string, hints map[string][]string, roots []string, work, texDir string) map[string]string {
+	resolveDir := filepath.Join(work, "exact_textures")
+	_ = os.MkdirAll(resolveDir, 0755)
+	_, _ = resolveTextureHints(ctx, exe, mounts, hints, resolveDir)
+	index := map[string]string{}
+	collectTextures(append(append([]string{}, roots...), resolveDir), texDir, index)
+	return index
+}
+
+func previewMaterials(sc *scene.Scene, hints map[string][]string, index map[string]string, texDir string) {
+	tr := TextureReport{}
+	warnings := []string{}
+	if un := applyMaterials(sc, hints, index, texDir, &tr, &warnings); len(un) > 0 {
+		applySafeMaterialFallbacks(sc, un, texDir, &tr, &warnings)
+	}
+}
+
+// PreviewTexturePNG returns one preview texture as PNG (DDS is decoded) for
+// the WebGL viewer. The PNG is cached beside the source file.
+func PreviewTexturePNG(set, name string) ([]byte, error) {
+	dir := PreviewTextureDir(set)
+	name = filepath.Base(name)
+	if name == "." || name == "/" || strings.HasPrefix(name, "..") {
+		return nil, fmt.Errorf("bad texture name")
+	}
+	src := filepath.Join(dir, name)
+	if strings.EqualFold(filepath.Ext(name), ".png") {
+		return os.ReadFile(src)
+	}
+	cache := filepath.Join(dir, ".png_cache", name+".png")
+	if b, err := os.ReadFile(cache); err == nil {
+		return b, nil
+	}
+	im, err := decodeTextureFile(src)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, im); err != nil {
+		return nil, err
+	}
+	_ = os.MkdirAll(filepath.Dir(cache), 0755)
+	_ = os.WriteFile(cache, buf.Bytes(), 0644)
+	return buf.Bytes(), nil
 }

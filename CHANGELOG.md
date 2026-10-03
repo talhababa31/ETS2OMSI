@@ -1,5 +1,12 @@
 # Changelog
 
+## V2.2.2 — Pencere, gerçek 3D görüntüleyici, boya düzeltmesi
+
+- Program artık tarayıcıda değil, kendi penceresinde açılıyor (Edge WebView2). Tarayıcı sadece yedek.
+- 3D görüntüleyici baştan yazıldı: gerçek DDS texture'lar, güneş + gökyüzü ışığı, parlama/yansıma, saydam cam, zemin ve gölge; üçgen atlama kaldırıldı (delikler yok). Önizleme dönüşümle aynı texture ve fallback'leri kullanıyor.
+- OMSI'de siyah kaput/çamurluk/tampon sorunu: base.scs'te kalan boya materyalleri artık neredeyse siyah RGB(48,48,52) yerine aracın kendi gövde texture'ındaki baskın renkle dolduruluyor.
+- Yeni DDS okuyucu (BC1/BC2/BC3/BC4/BC5, sıkıştırmasız, DX10).
+
 ## V2.2.1 — Jazzycat analiz düzeltmeleri
 
 - 3D önizleme: üçgen sarımı vertex normallerine göre düzeltiliyor (O3D çıktısıyla aynı kural); CULL_FACE kapalı, `0` normal değerleri artık doğru. Araçlar önizlemede siyah görünmüyor.

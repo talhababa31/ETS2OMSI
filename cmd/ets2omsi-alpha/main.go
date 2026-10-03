@@ -101,6 +101,7 @@ func main() {
 	mux.HandleFunc("/api/convert", convertAPI)
 	mux.HandleFunc("/api/extract", extractAPI)
 	mux.HandleFunc("/api/preview", previewAPI)
+	mux.HandleFunc("/api/texture", textureAPI)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Println(err)
@@ -397,6 +398,17 @@ func previewAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, d)
+}
+
+func textureAPI(w http.ResponseWriter, r *http.Request) {
+	b, err := conv.PreviewTexturePNG(r.URL.Query().Get("set"), r.URL.Query().Get("name"))
+	if err != nil {
+		http.Error(w, err.Error(), 404)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "no-cache")
+	_, _ = w.Write(b)
 }
 
 func writeJSON(w http.ResponseWriter, v any) { writeJSONStatus(w, 200, v) }
