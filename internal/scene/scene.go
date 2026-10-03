@@ -16,6 +16,9 @@ type Material struct {
 	// texture. HasTint is false when the material is neutral/white.
 	Tint    [3]float64 `json:"tint,omitempty"`
 	HasTint bool       `json:"has_tint,omitempty"`
+	// BaseTexture is the untinted texture when Tint was baked into Texture;
+	// colour variants re-tint it instead of recolouring the baked result.
+	BaseTexture string `json:"base_texture,omitempty"`
 }
 type Vertex struct {
 	Position Vec3 `json:"position"`

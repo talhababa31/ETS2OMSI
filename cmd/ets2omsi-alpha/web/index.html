@@ -12,7 +12,7 @@
 <div class="app-shell">
   <header class="topbar glass">
     <div class="brand"><img class="brand-mark" src="logo.svg" alt="ETS2OMSI"><div><div class="eyebrow">ETS2 → OMSI 2</div><h1>ETS2OMSI</h1></div></div>
-    <div class="top-actions"><span id="toolBadge" class="badge neutral">3D Engine · otomatik</span><span class="badge">V2.5.2</span><button id="themeToggle" class="icon-button" title="Tema">◐</button><button id="quitBtn" class="icon-button" title="Programı kapat">⏻</button></div>
+    <div class="top-actions"><span id="toolBadge" class="badge neutral">3D Engine · otomatik</span><span class="badge">V2.6.0</span><button id="themeToggle" class="icon-button" title="Tema">◐</button><button id="quitBtn" class="icon-button" title="Programı kapat">⏻</button></div>
   </header>
 
   <main>
@@ -64,7 +64,9 @@
       </section>
 
       <section id="conversionPanel" class="conversion-panel card hidden">
-        <div class="section-head"><div><div class="soft-label">SONUÇ</div><h3>Dönüşüm</h3></div><span id="conversionState" class="state-pill">Bekliyor</span></div>
+        <div class="section-head"><div><div class="soft-label">OMSI EXPORT</div><h3>Dönüşüm</h3><p id="exportSub" class="muted"></p></div><div class="row-actions"><span id="conversionState" class="state-pill">Bekliyor</span><button id="exportCancel" class="ghost hidden">Durdur</button></div></div>
+        <div id="exportProgress" class="export-progress hidden"><div class="bar"><i id="exportBar"></i></div><div id="exportNow" class="export-now"></div></div>
+        <div id="exportSummary" class="export-summary hidden"></div>
         <div id="conversionList" class="conversion-list"></div>
       </section>
 
@@ -76,7 +78,7 @@
 
     <section id="errorBox" class="error-box card hidden"></section>
   </main>
-  <footer><span>ETS2OMSI V2.5.2</span><span>SCS-only · AI cars · exterior model · OMSI OVH</span></footer>
+  <footer><span>ETS2OMSI V2.6.0</span><span>SCS-only · AI cars · exterior model · OMSI OVH</span></footer>
 </div>
 <script src="viewer.js"></script>
 <script src="app.js"></script>

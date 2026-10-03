@@ -130,3 +130,78 @@ func TestOpaqueMaterialsLoseAlpha(t *testing.T) {
 		t.Fatalf("colour changed: %v", c)
 	}
 }
+
+// atlasScene: a 2-triangle body quad mapped to UV region [0,0.5]x[0,0.5].
+func atlasScene(tex string) scene.Scene {
+	return scene.Scene{
+		Vertices: []scene.Vertex{
+			{Position: scene.Vec3{X: 0, Y: 0, Z: 0}, UV: scene.Vec2{X: .02, Y: .02}},
+			{Position: scene.Vec3{X: 0, Y: 4, Z: 0}, UV: scene.Vec2{X: .48, Y: .02}},
+			{Position: scene.Vec3{X: 0, Y: 4, Z: 1}, UV: scene.Vec2{X: .48, Y: .48}},
+			{Position: scene.Vec3{X: 0, Y: 0, Z: 1}, UV: scene.Vec2{X: .02, Y: .48}},
+		},
+		Triangles: []scene.Triangle{{A: 0, B: 1, C: 2}, {A: 0, B: 2, C: 3}},
+		Materials: []scene.Material{{Alias: "mat_0000_car", Texture: tex}},
+	}
+}
+
+func writeAtlas(t *testing.T, dir, name string, paint color.NRGBA) {
+	im := image.NewNRGBA(image.Rect(0, 0, 32, 32))
+	for y := 0; y < 32; y++ {
+		for x := 0; x < 32; x++ {
+			c := color.NRGBA{18, 18, 20, 255} // interior / trim: 3/4 of the atlas
+			if x < 16 && y < 16 {
+				c = paint
+				if x == 4 {
+					c = color.NRGBA{uint8(float64(paint.R) * .7), uint8(float64(paint.G) * .7), uint8(float64(paint.B) * .7), 255}
+				}
+			}
+			im.SetNRGBA(x, y, c)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), encodeDDS(im), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRecolorColouredPaintInDarkAtlas(t *testing.T) {
+	d := t.TempDir()
+	writeAtlas(t, d, "car.dds", color.NRGBA{170, 24, 28, 255}) // red car, black-dominated atlas
+	sc := atlasScene("car.dds")
+	blue, _ := paintByID("mavi")
+	if !newRecolorer(d).recolorScene(&sc, blue) {
+		t.Fatal("red paint in a dark atlas must be recoloured")
+	}
+	im, err := decodeTextureFile(filepath.Join(d, sc.Materials[0].Texture))
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := func(x, y int) color.NRGBA { return color.NRGBAModel.Convert(im.At(x, y)).(color.NRGBA) }
+	if c := at(8, 8); c.B < 140 || c.R > 70 {
+		t.Fatalf("paint not blue: %v", c)
+	}
+	if c := at(24, 24); c.R > 30 || c.B > 30 {
+		t.Fatalf("interior changed: %v", c)
+	}
+	if s, p := at(4, 8), at(8, 8); s.B >= p.B {
+		t.Fatalf("shading lost: %v vs %v", s, p)
+	}
+}
+
+func TestRecolorRetintsDiffusePaint(t *testing.T) {
+	d := t.TempDir()
+	writeAtlas(t, d, "grey.dds", color.NRGBA{200, 200, 200, 255})
+	sc := atlasScene("car_t9e161a.png")
+	sc.Materials[0].BaseTexture = "grey.dds"
+	green, _ := paintByID("yesil")
+	if !newRecolorer(d).recolorScene(&sc, green) {
+		t.Fatal("tinted paint must be re-tinted")
+	}
+	im, err := decodeTextureFile(filepath.Join(d, sc.Materials[0].Texture))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := color.NRGBAModel.Convert(im.At(8, 8)).(color.NRGBA); c.G <= c.R || c.G <= c.B {
+		t.Fatalf("not green: %v", c)
+	}
+}

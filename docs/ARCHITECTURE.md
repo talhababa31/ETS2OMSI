@@ -52,5 +52,5 @@ Aks başına yay, sönüm ve azami kuvvet kütleden hesaplanır (yaklaşık 2,3 
 ## Renk çeşitleri ve alfa
 
 - Opak materyallerin texture'ları alfa kanalı olmadan yazılır (`*_opq.dds`): ETS2 alfa kanalında parlaklık maskesi tutar, OMSI bunu saydamlık sayar.
-- Renk çeşitleri: PIT'teki diğer Look'lar ayrı ayrı çözülür; palet renkleri için gövde boyası (baskın rengi açık ve doygunluğu düşük texture'lar) piksel bazında, göreli parlaklık korunarak boyanır. Doygun (lamba) ve koyu (trim) pikseller değişmez.
+- Renk çeşitleri: PIT'teki diğer Look'lar ayrı ayrı çözülür. Palet renkleri için boya rengi materyalin yüzeyinden ölçülür (her üçgenin UV noktalarından texture örneklenir, 3B alanla ağırlıklandırılır); bu renge yakın pikseller (beyaz/gri, koyu ve renkli boyalar için ayrı kurallar) göreli parlaklık korunarak hedef renge boyanır. Ölçülen renk materyal yüzeyinin %30'undan azını kaplıyorsa materyal boyanmaz. Diffuse ile renklenen materyallerde gri ana texture yeniden renklendirilir.
 - Her çeşit kendi gövde/LOD O3D dosyalarını (`body_<id>.o3d`, `lod_N_<id>.o3d`), `model/model_<id>.cfg` ve `<Araç>_<id>.ovh` dosyasını alır; tekerlek O3D'leri ortaktır. OMSI'de `[matl]` yalnız materyal seçer (O3D'deki texture adıyla), texture değiştirmez; bu yüzden texture'lar O3D'ye yazılır.

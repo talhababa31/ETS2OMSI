@@ -85,43 +85,183 @@ func smooth(e0, e1, x float64) float64 {
 	return t * t * (3 - 2*t)
 }
 
-// paintBase reports whether a texture's dominant colour is a recolourable
-// paint base (white / silver / light grey) and returns its luminance.
-func paintBase(im image.Image) (float64, bool) {
-	dom, ok := dominantColor(im)
-	if !ok {
-		return 0, false
+func hsv(c color.NRGBA) (h, sat, val float64) {
+	r, g, b := float64(c.R)/255, float64(c.G)/255, float64(c.B)/255
+	mx := math.Max(r, math.Max(g, b))
+	mn := math.Min(r, math.Min(g, b))
+	d := mx - mn
+	val = mx
+	if mx > 0 {
+		sat = d / mx
 	}
-	l, s := lumSat(dom)
-	return l, s < .2 && l > .45
+	switch {
+	case d == 0:
+		h = 0
+	case mx == r:
+		h = math.Mod((g-b)/d, 6) * 60
+	case mx == g:
+		h = ((b-r)/d + 2) * 60
+	default:
+		h = ((r-g)/d + 4) * 60
+	}
+	if h < 0 {
+		h += 360
+	}
+	return
 }
 
-// recolorImage maps paint texels to target, keeping their shading relative to
-// the dominant paint luminance. Dark, saturated or transparent texels stay.
-func recolorImage(im image.Image, baseLum float64, target color.NRGBA) *image.NRGBA {
+func hueDist(a, b float64) float64 {
+	d := math.Abs(a - b)
+	if d > 180 {
+		d = 360 - d
+	}
+	return d
+}
+
+// paintProfile is the measured paint colour of one material.
+type paintProfile struct {
+	c        color.NRGBA
+	lum      float64
+	hue, sat float64
+	coverage float64 // share of the material's surface with this colour
+}
+
+// measurePaint finds the colour that covers the largest part of the
+// material's SURFACE: the texture is sampled at the UV of every triangle and
+// weighted by the triangle's 3D area, so interior/trim parts of an atlas do
+// not outvote the body. Without triangles the whole image is used.
+func measurePaint(im image.Image, sc *scene.Scene, mat int) (paintProfile, bool) {
+	b := im.Bounds()
+	w, h := b.Dx(), b.Dy()
+	type acc struct{ wt, r, g, bl float64 }
+	hist := map[int]*acc{}
+	total := 0.0
+	add := func(c color.NRGBA, wt float64) {
+		if c.A < 100 || wt <= 0 {
+			return
+		}
+		k := int(c.R>>4)<<8 | int(c.G>>4)<<4 | int(c.B>>4)
+		a := hist[k]
+		if a == nil {
+			a = &acc{}
+			hist[k] = a
+		}
+		a.wt += wt
+		a.r += float64(c.R) * wt
+		a.g += float64(c.G) * wt
+		a.bl += float64(c.B) * wt
+		total += wt
+	}
+	sample := func(u, v float64) color.NRGBA {
+		u, v = u-math.Floor(u), v-math.Floor(v)
+		x, y := int(u*float64(w)), int(v*float64(h))
+		if x >= w {
+			x = w - 1
+		}
+		if y >= h {
+			y = h - 1
+		}
+		return color.NRGBAModel.Convert(im.At(b.Min.X+x, b.Min.Y+y)).(color.NRGBA)
+	}
+	used := false
+	if sc != nil {
+		for _, t := range sc.Triangles {
+			if t.Material != mat || t.A >= len(sc.Vertices) || t.B >= len(sc.Vertices) || t.C >= len(sc.Vertices) || t.A < 0 || t.B < 0 || t.C < 0 {
+				continue
+			}
+			p, q, r := sc.Vertices[t.A], sc.Vertices[t.B], sc.Vertices[t.C]
+			ux, uy, uz := q.Position.X-p.Position.X, q.Position.Y-p.Position.Y, q.Position.Z-p.Position.Z
+			vx, vy, vz := r.Position.X-p.Position.X, r.Position.Y-p.Position.Y, r.Position.Z-p.Position.Z
+			area := .5 * math.Sqrt(math.Pow(uy*vz-uz*vy, 2)+math.Pow(uz*vx-ux*vz, 2)+math.Pow(ux*vy-uy*vx, 2))
+			// centroid + the three edge midpoints
+			for _, wts := range [][3]float64{{1. / 3, 1. / 3, 1. / 3}, {.5, .5, 0}, {0, .5, .5}, {.5, 0, .5}} {
+				u := p.UV.X*wts[0] + q.UV.X*wts[1] + r.UV.X*wts[2]
+				v := p.UV.Y*wts[0] + q.UV.Y*wts[1] + r.UV.Y*wts[2]
+				add(sample(u, v), area/4)
+			}
+			used = true
+		}
+	}
+	if !used {
+		step := 1
+		if w*h > 512*512 {
+			step = 2
+		}
+		for y := 0; y < h; y += step {
+			for x := 0; x < w; x += step {
+				add(color.NRGBAModel.Convert(im.At(b.Min.X+x, b.Min.Y+y)).(color.NRGBA), 1)
+			}
+		}
+	}
+	if total <= 0 {
+		return paintProfile{}, false
+	}
+	var best *acc
+	for _, a := range hist {
+		if best == nil || a.wt > best.wt {
+			best = a
+		}
+	}
+	c := color.NRGBA{uint8(best.r / best.wt), uint8(best.g / best.wt), uint8(best.bl / best.wt), 255}
+	l, _ := lumSat(c)
+	hh, ss, _ := hsv(c)
+	pp := paintProfile{c: c, lum: l, hue: hh, sat: ss}
+	// coverage of everything close to that colour, not just one bucket
+	for _, a := range hist {
+		ac := color.NRGBA{uint8(a.r / a.wt), uint8(a.g / a.wt), uint8(a.bl / a.wt), 255}
+		if paintWeight(ac, pp) > .5 {
+			pp.coverage += a.wt
+		}
+	}
+	pp.coverage /= total
+	return pp, true
+}
+
+// paintWeight: how much a texel belongs to the measured paint (0..1).
+func paintWeight(c color.NRGBA, p paintProfile) float64 {
+	l, s := lumSat(c)
+	hh, _, _ := hsv(c)
+	pl := math.Max(p.lum, .04)
+	rel := l / pl
+	switch {
+	case p.sat < .18 && p.lum < .16: // black / very dark paint
+		return smooth(.30, .18, s) * smooth(p.lum*2.6+.12, p.lum*1.6+.06, l)
+	case p.sat < .18: // white, silver, grey
+		return smooth(.26, .14, s) * smooth(.32, .55, rel) * smooth(1.9, 1.5, rel)
+	default: // coloured paint
+		return smooth(30, 16, hueDist(hh, p.hue)) * smooth(p.sat*.3, p.sat*.6, s) * smooth(.22, .42, rel) * smooth(2.2, 1.7, rel)
+	}
+}
+
+// recolorPaint maps paint texels to target, keeping each texel's shading
+// relative to the measured paint colour.
+func recolorPaint(im image.Image, p paintProfile, target color.NRGBA) *image.NRGBA {
 	b := im.Bounds()
 	out := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 	tr, tg, tb := float64(target.R), float64(target.G), float64(target.B)
+	pl := math.Max(p.lum, .04)
 	for y := 0; y < b.Dy(); y++ {
 		for x := 0; x < b.Dx(); x++ {
 			c := color.NRGBAModel.Convert(im.At(b.Min.X+x, b.Min.Y+y)).(color.NRGBA)
-			l, s := lumSat(c)
-			rel := l / baseLum
-			w := smooth(.24, .12, s) * smooth(.38, .62, rel)
+			w := paintWeight(c, p)
 			if w <= 0 {
 				out.SetNRGBA(x, y, c)
 				continue
 			}
-			shade := math.Min(rel, 1.35)
+			l, _ := lumSat(c)
+			shade := math.Min((l+.03)/(pl+.03), 1.4)
 			nr, ng, nb := tr*shade, tg*shade, tb*shade
 			if shade > 1 { // highlights go towards white
-				h := (shade - 1) / .35
-				nr, ng, nb = nr+(255-nr)*h*.5, ng+(255-ng)*h*.5, nb+(255-nb)*h*.5
+				hl := (shade - 1) / .4 * .5
+				nr, ng, nb = nr+(255-nr)*hl, ng+(255-ng)*hl, nb+(255-nb)*hl
 			}
 			mix := func(a uint8, v float64) uint8 {
 				x := float64(a)*(1-w) + v*w
 				if x > 255 {
 					x = 255
+				}
+				if x < 0 {
+					x = 0
 				}
 				return uint8(x)
 			}
@@ -131,61 +271,78 @@ func recolorImage(im image.Image, baseLum float64, target color.NRGBA) *image.NR
 	return out
 }
 
-// recolorer caches paint analysis and written textures per conversion.
+// recolorer caches written textures per conversion.
 type recolorer struct {
 	texDir string
-	base   map[string]float64 // texture -> base luminance (absent = not paint)
-	seen   map[string]bool
 	out    map[string]string
+	images map[string]image.Image
 }
 
 func newRecolorer(texDir string) *recolorer {
-	return &recolorer{texDir: texDir, base: map[string]float64{}, seen: map[string]bool{}, out: map[string]string{}}
+	return &recolorer{texDir: texDir, out: map[string]string{}, images: map[string]image.Image{}}
 }
 
-func (r *recolorer) texture(tex string, p PaintColor) string {
-	if tex == "" || strings.HasPrefix(tex, "gen_") || strings.HasPrefix(tex, "optional_") || strings.HasPrefix(tex, "semantic_") {
-		return tex
-	}
-	if strings.HasPrefix(tex, "fallback_paint_") || tex == "fallback_body.png" {
-		if n := writePaintFallback(r.texDir, p.rgb, nil); n != "" {
-			return n
-		}
-		return tex
-	}
-	key := tex + "|" + p.ID
-	if n, ok := r.out[key]; ok {
-		return n
-	}
-	if !r.seen[tex] {
-		r.seen[tex] = true
-		if im, err := decodeTextureFile(filepath.Join(r.texDir, tex)); err == nil {
-			if l, ok := paintBase(im); ok {
-				r.base[tex] = l
-			}
-		}
-	}
-	l, ok := r.base[tex]
-	if !ok {
-		r.out[key] = tex
-		return tex
+func (r *recolorer) load(tex string) image.Image {
+	if im, ok := r.images[tex]; ok {
+		return im
 	}
 	im, err := decodeTextureFile(filepath.Join(r.texDir, tex))
 	if err != nil {
-		r.out[key] = tex
-		return tex
+		im = nil
 	}
-	name := strings.TrimSuffix(tex, filepath.Ext(tex)) + "_" + p.ID + ".dds"
-	if err := os.WriteFile(filepath.Join(r.texDir, name), encodeDDS(recolorImage(im, l, p.rgb)), 0644); err != nil {
-		r.out[key] = tex
-		return tex
+	r.images[tex] = im
+	return im
+}
+
+// minPaintCoverage: the measured colour must cover at least this share of
+// the material's surface to count as its paint.
+const minPaintCoverage = .30
+
+// recolorMaterial returns the new texture for material i, or "" if it is not
+// a paint material.
+func (r *recolorer) recolorMaterial(sc *scene.Scene, i int, p PaintColor) string {
+	m := sc.Materials[i]
+	if m.Texture == "" || strings.HasPrefix(m.Texture, "gen_") {
+		return ""
 	}
-	r.out[key] = name
+	if strings.HasPrefix(m.Texture, "fallback_paint_") || strings.HasPrefix(m.Texture, "fallback_body") {
+		return writePaintFallback(r.texDir, p.rgb, nil)
+	}
+	// ETS2 diffuse-tinted paint: re-tint the original grey texture.
+	if m.BaseTexture != "" {
+		key := m.BaseTexture + "|tint|" + p.ID
+		if n, ok := r.out[key]; ok {
+			return n
+		}
+		n := bakeTint(r.texDir, m.BaseTexture, [3]float64{float64(p.rgb.R) / 255, float64(p.rgb.G) / 255, float64(p.rgb.B) / 255})
+		r.out[key] = n
+		return n
+	}
+	im := r.load(m.Texture)
+	if im == nil {
+		return ""
+	}
+	prof, ok := measurePaint(im, sc, i)
+	if !ok || prof.coverage < minPaintCoverage {
+		return ""
+	}
+	key := fmt.Sprintf("%s|%02x%02x%02x|%s", m.Texture, prof.c.R, prof.c.G, prof.c.B, p.ID)
+	if n, ok := r.out[key]; ok {
+		return n
+	}
+	name := strings.TrimSuffix(m.Texture, filepath.Ext(m.Texture)) + "_" + p.ID + ".dds"
+	if prev, used := r.out[name]; used && prev != key {
+		name = shortHash(key) + "_" + name
+	}
+	if err := os.WriteFile(filepath.Join(r.texDir, name), encodeDDS(recolorPaint(im, prof, p.rgb)), 0644); err != nil {
+		return ""
+	}
+	r.out[key], r.out[name] = name, key
 	return name
 }
 
-// recolorScene changes the textures of the paint materials of a scene.
-// It reports whether anything was recoloured.
+// recolorScene changes the textures of the paint materials of a scene and
+// reports whether anything was recoloured.
 func (r *recolorer) recolorScene(sc *scene.Scene, p PaintColor) bool {
 	changed := false
 	for i := range sc.Materials {
@@ -194,12 +351,11 @@ func (r *recolorer) recolorScene(sc *scene.Scene, p PaintColor) bool {
 			continue
 		}
 		if k, _, _ := generatedKind(sc, i, ""); k != genPaint {
-			if !strings.HasPrefix(m.Texture, "fallback_paint_") && m.Texture != "fallback_body.png" {
-				continue // a known non-paint part (trim, interior, lamp ...)
-			}
+			continue // a known non-paint part (trim, interior, lamp ...)
 		}
-		if n := r.texture(m.Texture, p); n != m.Texture {
+		if n := r.recolorMaterial(sc, i, p); n != "" && n != m.Texture {
 			m.Texture = n
+			m.HasTint = false
 			changed = true
 		}
 	}
@@ -237,6 +393,7 @@ type ColorVariant struct {
 	Label string `json:"label"`
 	OVH   string `json:"ovh"`
 	Kind  string `json:"kind"` // look | paint
+	Hex   string `json:"hex,omitempty"`
 }
 
 // colorVariantSet holds the recoloured scenes of one variant. OMSI's [matl]
@@ -358,7 +515,7 @@ func exportColorVariants(stage string, spec omsi.VehicleSpec, converted []conver
 				continue
 			}
 			before := len(sets)
-			collect(ColorVariant{ID: p.ID, Label: p.Label, Kind: "paint"}, func(i int, cm *convertedModel) scene.Scene {
+			collect(ColorVariant{ID: p.ID, Label: p.Label, Kind: "paint", Hex: p.Hex}, func(i int, cm *convertedModel) scene.Scene {
 				clone := cm.sc
 				clone.Materials = append([]scene.Material(nil), cm.sc.Materials...)
 				rc.recolorScene(&clone, p)

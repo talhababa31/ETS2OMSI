@@ -39,7 +39,7 @@ type appState struct {
 
 var current appState
 
-const appVersion = "V2.5.2"
+const appVersion = "V2.6.0"
 
 var (
 	logPath     string
@@ -103,6 +103,7 @@ func main() {
 	mux.HandleFunc("/api/extract", extractAPI)
 	mux.HandleFunc("/api/preview", previewAPI)
 	mux.HandleFunc("/api/texture", textureAPI)
+	mux.HandleFunc("/api/open-folder", openFolderAPI)
 	mux.HandleFunc("/api/classes", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, omsi.Classes()) })
 	mux.HandleFunc("/api/colors", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"palette": conv.PaintPalette, "default": conv.DefaultPaintColors})
@@ -406,6 +407,37 @@ func previewAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, d)
+}
+
+// openFolderAPI shows a conversion output folder in the file manager.
+func openFolderAPI(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path string `json:"path"`
+	}
+	if r.Method != http.MethodPost || json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req) != nil {
+		http.Error(w, "POST {path} required", 400)
+		return
+	}
+	p, err := filepath.Abs(strings.TrimSpace(req.Path))
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	if st, err := os.Stat(p); err != nil || !st.IsDir() {
+		http.Error(w, "klasör bulunamadı: "+p, 404)
+		return
+	}
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", p)
+	case "darwin":
+		cmd = exec.Command("open", p)
+	default:
+		cmd = exec.Command("xdg-open", p)
+	}
+	_ = cmd.Start()
+	writeJSON(w, map[string]string{"path": p})
 }
 
 func textureAPI(w http.ResponseWriter, r *http.Request) {

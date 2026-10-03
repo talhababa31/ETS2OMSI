@@ -68,15 +68,68 @@ async function extractIDs(ids){
   try{const d=await post('/api/extract',{ids,output_root:out});$('#conversionState').textContent='Ayrıldı';$('#conversionState').className='state-pill ok';$('#conversionList').innerHTML=(d.items||[]).map(x=>`<div class="conversion-item"><div><b>${esc(x.name||x.id)}</b><small>${x.error?esc(x.error):`${esc(x.output)} · ${x.file_count} dosya`}</small></div><span class="state-pill ${x.error?'bad':'ok'}">${x.error?'Hata':'Hazır'}</span></div>`).join('');$('#conversionPanel').scrollIntoView({behavior:'smooth',block:'center'})}catch(e){showError(e);$('#conversionState').textContent='Hata';$('#conversionState').className='state-pill bad'}
 }
 
+var exportRun=null;
 async function convertSelected(){
-  if(!selected.size)return;clearError();saveOutput();const ids=[...selected],out=$('#outputRoot').value.trim()||'output';$('#conversionPanel').classList.remove('hidden');$('#conversionState').textContent='Dönüştürülüyor…';$('#conversionState').className='state-pill info';$('#conversionList').innerHTML=ids.map(id=>{const v=(report.vehicles||[]).find(x=>x.id===id);return `<div class="conversion-item"><div><b>${esc(v?.display_name||id)}</b><small>PMD/PMG çözülüyor → OMSI O3D hazırlanıyor…</small></div><span class="state-pill info">Bekliyor</span></div>`}).join('');$('#conversionPanel').scrollIntoView({behavior:'smooth',block:'center'});$('#convertBtn').disabled=true;$('#convertBtn').textContent='Dönüştürülüyor…';
-  try{const classes={};for(const id of ids)if(classOverride[id])classes[id]=classOverride[id];const d=await post('/api/convert',{ids,output_root:out,classes,colors:selectedColors.length?selectedColors:['none']});renderConversions(d.items||[])}catch(e){showError(e);$('#conversionState').textContent='Hata';$('#conversionState').className='state-pill bad'}finally{$('#convertBtn').disabled=false;$('#convertBtn').textContent="OMSI'ye Dönüştür →"}
+  if(!selected.size||exportRun)return;clearError();saveOutput();
+  const ids=[...selected],out=$('#outputRoot').value.trim()||'output';
+  const classes={};for(const id of ids)if(classOverride[id])classes[id]=classOverride[id];
+  const colors=selectedColors.length?selectedColors:['none'];
+  const run={ids,out,items:[],cancel:false,start:Date.now()};exportRun=run;
+  $('#conversionPanel').classList.remove('hidden');$('#exportProgress').classList.remove('hidden');$('#exportCancel').classList.remove('hidden');$('#exportSummary').classList.add('hidden');
+  $('#conversionList').innerHTML='';$('#conversionState').textContent='Dönüştürülüyor…';$('#conversionState').className='state-pill info';
+  $('#exportSub').textContent=`${ids.length} araç · ${colors[0]==='none'?'sadece orijinal renk':`orijinal + ${colors.length} renk`} · çıktı: ${out}`;
+  $('#conversionPanel').scrollIntoView({behavior:'smooth',block:'start'});$('#convertBtn').disabled=true;$('#convertBtn').textContent='Dönüştürülüyor…';
+  for(let n=0;n<ids.length;n++){
+    if(run.cancel)break;const id=ids[n],v=(report.vehicles||[]).find(x=>x.id===id);
+    updateProgress(run,n,v?.display_name||id);
+    let item;try{const d=await post('/api/convert',{ids:[id],output_root:out,classes,colors});item=(d.items||[])[0]||{id,error:'boş yanıt'}}catch(e){item={id,name:v?.display_name,error:e.message}}
+    run.items.push(item);$('#conversionList').insertAdjacentHTML('beforeend',exportCard(item,run.items.length-1));bindCard(run.items.length-1);
+  }
+  updateProgress(run,run.items.length,'');$('#exportProgress').classList.add('hidden');$('#exportCancel').classList.add('hidden');
+  renderExportSummary(run);exportRun=null;$('#convertBtn').disabled=false;$('#convertBtn').textContent="OMSI'ye Dönüştür →";
 }
-function renderConversions(items){
-  const failed=items.filter(x=>x.error||x.report?.status==='fail').length;$('#conversionState').textContent=failed?`${failed} başarısız`:'Tamamlandı';$('#conversionState').className=`state-pill ${failed?'warn':'ok'}`;
-  $('#conversionList').innerHTML=items.map(x=>{const r=x.report||{},bad=!!(x.error||r.status==='fail'),warnings=(r.warnings||[]).slice(0,4);let info='';if(bad){info=`Aşama: ${r.stage||'conversion'} · ${x.error||((r.errors||[]).join(' · '))||'Bilinmeyen hata'}`}else{const val=r.validation||{},tex=r.textures||{};const a=r.automation||{},phys=((r.color_variants||[]).length?` · ${(r.color_variants||[]).length+1} renk`:'')+(a.vehicle_class?` · Sınıf ${classLabel(a.vehicle_class)}${a.class_basis?` (${a.class_basis})`:''}`:'')+(a.estimated_mass_t?` · Fizik ${a.estimated_mass_t} t`:'');info=`${r.output} · ${r.models?.length||0} model · ${tex.copied||0} texture · Exact ${tex.exact_resolved||0}${phys} · Yön ${val.orientation_ok?'OK':'FAIL'} · Zemin ${val.ground_ok?'OK':'WARN'} · Teker ${val.wheel_meshes||0}/4 · O3D ${val.o3d_readback_ok?'OK':'?'}${warnings.length?` · ${warnings.length} uyarı`:''}`}
-    return `<div class="conversion-item"><div><b>${esc(r.name||x.name||x.id)}</b><small>${esc(info)}</small>${warnings.length?`<small class="warn-text">${warnings.map(esc).join(' · ')}</small>`:''}</div><span class="state-pill ${bad?'bad':r.status==='warn'?'warn':'ok'}">${bad?'FAILED':r.status==='warn'?'UYARI':'OMSI READY'}</span></div>`}).join('')||'<div class="muted">Sonuç yok.</div>'
+function updateProgress(run,done,name){
+  const total=run.ids.length,pct=Math.round(done/total*100);$('#exportBar').style.width=pct+'%';
+  let eta='';if(done>0&&done<total){const per=(Date.now()-run.start)/done,left=Math.round(per*(total-done)/1000);eta=` · kalan ~${left>90?Math.round(left/60)+' dk':left+' sn'}`}
+  $('#exportNow').innerHTML=name?`<b>${done+1} / ${total}</b> · ${esc(name)} dönüştürülüyor…${eta}`:`<b>${done} / ${total}</b> tamamlandı`;
 }
+function itemState(x){const r=x.report||{};if(x.error||r.status==='fail')return'bad';return r.status==='warn'?'warn':'ok'}
+function exportCard(x,i){
+  const r=x.report||{},st=itemState(x),a=r.automation||{},val=r.validation||{},tex=r.textures||{};
+  const cols=r.color_variants||[];
+  const dots=`<span class="cdot orig" title="Orijinal"></span>`+cols.map(c=>c.hex?`<span class="cdot" style="background:${esc(c.hex)}" title="${esc(c.label)}"></span>`:`<span class="cdot look" title="${esc(c.label)}"></span>`).join('');
+  const warns=r.warnings||[],errs=(r.errors||[]).concat(x.error?[x.error]:[]);
+  const facts=st==='bad'?`<span class="fact bad">Aşama: ${esc(r.stage||'dönüşüm')}</span>`:[
+    a.vehicle_class?`<span class="fact">${esc(classLabel(a.vehicle_class))}${a.class_basis?` <small>(${esc(a.class_basis)})</small>`:''}</span>`:'',
+    `<span class="fact">${dots} ${cols.length+1} renk</span>`,
+    `<span class="fact">Teker ${val.wheel_meshes||0}/4</span>`,
+    `<span class="fact">${tex.copied||0} texture</span>`,
+    a.estimated_mass_t?`<span class="fact">${a.estimated_mass_t} t</span>`:''].join('');
+  const label={ok:'OMSI HAZIR',warn:'UYARILI',bad:'HATA'}[st];
+  return `<div class="export-card ${st}" data-i="${i}"><div class="ec-head"><div><b>${esc(r.name||x.name||x.id)}</b><small>${esc(r.output||'')}</small></div><span class="state-pill ${st}">${label}</span></div>
+  <div class="ec-facts">${facts}</div>
+  ${errs.length?`<div class="ec-err">${errs.map(esc).join('<br>')}</div>`:''}
+  ${warns.length?`<details class="ec-warn"><summary>${warns.length} uyarı</summary><ul>${warns.map(w=>`<li>${esc(w)}</li>`).join('')}</ul></details>`:''}
+  <div class="ec-actions">${r.output?`<button class="mini" data-act="open">Klasörü aç</button>`:''}${(r.ailist_lines||[]).length?`<button class="mini" data-act="copy">ailists satırlarını kopyala (${r.ailist_lines.length})</button>`:''}</div></div>`;
+}
+function bindCard(i){const c=document.querySelector(`.export-card[data-i="${i}"]`);if(!c)return;const x=exportRunItems()[i];
+  c.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{const r=x.report||{};if(b.dataset.act==='open')openFolder(r.output);else copyText((r.ailist_lines||[]).join('\r\n'),b)})}
+var lastExportItems=[];function exportRunItems(){return exportRun?exportRun.items:lastExportItems}
+function renderExportSummary(run){
+  lastExportItems=run.items;const s={ok:0,warn:0,bad:0};let vehicles=0;const lines=[];
+  for(const x of run.items){s[itemState(x)]++;if(itemState(x)!=='bad'){vehicles+=1+((x.report||{}).color_variants||[]).length;lines.push(...((x.report||{}).ailist_lines||[]))}}
+  const stopped=run.items.length<run.ids.length;
+  $('#conversionState').textContent=stopped?'Durduruldu':s.bad?`${s.bad} hata`:'Tamamlandı';$('#conversionState').className='state-pill '+(s.bad||stopped?'warn':'ok');
+  const box=$('#exportSummary');box.classList.remove('hidden');
+  box.innerHTML=`<div class="es-stats"><div><b>${s.ok}</b><span>hazır</span></div><div><b>${s.warn}</b><span>uyarılı</span></div><div><b>${s.bad}</b><span>hata</span></div><div><b>${vehicles}</b><span>OMSI aracı (renkler dahil)</span></div></div>
+  <div class="es-actions"><button class="secondary" id="esOpen">Çıktı klasörünü aç</button><button class="primary" id="esCopy" ${lines.length?'':'disabled'}>Tüm ailists satırlarını kopyala (${lines.length})</button></div>
+  <p class="muted">Kopyaladığın satırları haritanın <b>ailists.cfg</b> dosyasındaki AI grubuna yapıştır; her renk ayrı bir satırdır.</p>`;
+  $('#esOpen').onclick=()=>openFolder(run.out);$('#esCopy').onclick=e=>copyText(lines.join('\r\n'),e.target);
+  run.items.forEach((_,i)=>bindCard(i));
+}
+async function openFolder(p){try{await post('/api/open-folder',{path:p})}catch(e){showError(e)}}
+async function copyText(t,btn){try{await navigator.clipboard.writeText(t)}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove()}
+  if(btn){const o=btn.textContent;btn.textContent='Kopyalandı ✓';setTimeout(()=>btn.textContent=o,1500)}}
 
 async function loadPreview(v,mode='source',color=''){
   previewMode=mode;clearError();$('#previewPanel').classList.remove('hidden');$('#previewTitle').textContent=v.display_name+' · '+(mode==='final'?'OMSI FINAL':'SOURCE');$('#previewLoading').classList.remove('hidden');$('#previewInfo').innerHTML='';$('#previewPanel').scrollIntoView({behavior:'smooth',block:'center'});
@@ -119,3 +172,5 @@ function renderColorSettings(){const box=$('#colorSettings');if(!box)return;
   box.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const id=b.dataset.id;selectedColors=selectedColors.includes(id)?selectedColors.filter(x=>x!==id):selectedColors.concat(id);try{localStorage.setItem('ets2omsi.colors',JSON.stringify(selectedColors))}catch(e){};renderColorSettings()});
   const n=$('#colorCount');if(n)n.textContent=selectedColors.length?`Her araç için ${selectedColors.length+1} renk (orijinal + ${selectedColors.length}) çıkarılır. ETS2'deki ek renkler (Look) de eklenir.`:'Sadece orijinal renk (ve ETS2 ek renkleri) çıkarılır.'}
 api('/api/colors').then(x=>{paletteColors=x.palette||[];let saved=null;try{saved=JSON.parse(localStorage.getItem('ets2omsi.colors')||'null')}catch(e){};selectedColors=Array.isArray(saved)?saved:(x.default||[]);renderColorSettings()}).catch(()=>{});
+
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='exportCancel'&&exportRun){exportRun.cancel=true;e.target.textContent='Durduruluyor…'}});

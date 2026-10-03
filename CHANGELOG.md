@@ -2,6 +2,17 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr-TR/1.1.0/) esas alınarak hazırlanmıştır.
 
+## [2.6.0] — 2026-10-03
+
+### Düzeltildi
+- **Renk çeşitlerinin birçok araçta çıkmaması:** Boya rengi artık texture'ın en sık rengi yerine aracın **yüzeyinden** ölçülür (gövde üçgenlerinin texture'daki renkleri, yüzey alanına göre). Texture atlası iç mekân/siyah plastikle dolu olsa da boya doğru bulunur.
+- Yalnızca beyaz/gümüş değil, **her renkteki** boya (kırmızı, mavi, siyah …) yeni renge boyanır; gölgelendirme korunur.
+- Rengi ETS2 materyal değerinden (diffuse) gelen araçlarda, gri ana texture yeni renkle yeniden boyanır.
+
+### Değişti
+- **Dönüştürme ekranı yeniden tasarlandı:** araç araç ilerleme çubuğu, o an dönüştürülen araç, kalan süre, *Durdur*; her araç için kart (durum, sınıf, renk noktaları, teker, texture, açılır uyarılar, *Klasörü aç*, *ailists satırlarını kopyala*); özet ve *Tüm ailists satırlarını kopyala*.
+- Dönüşüm raporunda `ailist_lines` ve renk kodları.
+
 ## [2.5.2] — 2026-10-03
 
 ### Düzeltildi
