@@ -1,5 +1,7 @@
 # ETS2OMSI V2.2 — Analiz Raporu (3 sorun)
 
+> **Durum (V2.2.2):** Bu rapordaki 3 düzeltmenin hepsi yapıldı (3D görüntüleyici, texture kurtarma, exe). Ayrıntı: [CHANGELOG.md](../CHANGELOG.md).
+
 Test paketi: `ai_traffic_pack_by_Jazzycat_v2.9.scs` (687 MB, 20.045 giriş, 171 araç)
 Referans: gerçek OMSI 2 araçları (`Opel_Manta_B`, `Peugeot 106`) + Go 1.27 kaynak kodu.
 

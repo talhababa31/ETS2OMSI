@@ -1,4 +1,5 @@
-ETS2OMSI V2.2.1
-- ETS2OMSI_V2_2_1.exe      -> normal program (çift tıkla)
-- ETS2OMSI_V2_2_1_CLI.exe  -> komut satırı sürümü (gerekmez)
+ETS2OMSI V2.2.2
+- ETS2OMSI.exe      -> asıl program (çift tıkla, kendi penceresinde açılır)
+- ETS2OMSI_CLI.exe  -> komut satırı sürümü (normalde gerekmez)
+- tools\            -> ConverterPIX kurulum betikleri (3D motoru ilk dönüşümde otomatik iner)
 Ayrıntılı anlatım: ana klasördeki KULLANIM.md

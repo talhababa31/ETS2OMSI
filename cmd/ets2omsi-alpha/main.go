@@ -38,7 +38,7 @@ type appState struct {
 
 var current appState
 
-const appVersion = "V2.2 Material + Physics"
+const appVersion = "V2.2.2"
 
 var (
 	logPath     string
@@ -68,7 +68,7 @@ func main() {
 
 	dataDir := appDataDir()
 	_ = os.MkdirAll(dataDir, 0755)
-	logPath = filepath.Join(dataDir, "ETS2OMSI_V2_2_MATERIAL_PHYSICS.log")
+	logPath = filepath.Join(dataDir, "ETS2OMSI.log")
 	if f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
 		log.SetOutput(io.MultiWriter(f, os.Stderr))
 		defer f.Close()

@@ -1,4 +1,4 @@
-# ETS2OMSI V2.2.1 — Nasıl Kullanılır
+# ETS2OMSI V2.2.2 — Nasıl Kullanılır
 
 ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 
@@ -6,14 +6,14 @@ ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 
 1. GitHub'da bu sayfanın üstündeki **Code → Download ZIP**'e bas (veya `release` klasörüne girip exe'yi tek tek indir).
 2. ZIP'i bir klasöre çıkar (örnek: `C:\ETS2OMSI`).
-3. Kullanacağın dosya: **`release\ETS2OMSI_V2_2_1.exe`**
+3. Kullanacağın dosya: **`release\ETS2OMSI.exe`**
 
 > Go, Blender ya da ETS2 kurulu olmasına gerek yok. 3D motoru (ConverterPIX) ilk dönüşümde kendi kendine iner, bunun için internet lazım.
 
 ## 2. Çalıştır
 
-1. Eski sürüm açık kaldıysa önce **Görev Yöneticisi**'nden `ETS2OMSI_V2_2_MATERIAL_PHYSICS.exe` süreçlerinin hepsini kapat.
-2. `ETS2OMSI_V2_2_1.exe`'ye çift tıkla. Program **kendi penceresinde** açılır (tarayıcı gerekmez).
+1. Eski sürüm açık kaldıysa önce **Görev Yöneticisi**'nden `ETS2OMSI` süreçlerinin hepsini kapat.
+2. `ETS2OMSI.exe`'ye çift tıkla. Program **kendi penceresinde** açılır (tarayıcı gerekmez).
    - Pencere Windows'un hazır gelen Edge WebView2 bileşenini kullanır (Windows 10/11'de zaten yüklü).
    - WebView2 yoksa program otomatik olarak tarayıcıda açılır ve küçük bir durum penceresi gösterir.
    - Kapatmak için pencerenin **X**'ine bas.
@@ -36,6 +36,6 @@ ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 
 ## Sorun olursa
 
-- Log dosyası: `%LocalAppData%\ETS2OMSI\ETS2OMSI_V2_2_MATERIAL_PHYSICS.log` (Windows tuşu + R → bu yolu yapıştır).
+- Log dosyası: `%LocalAppData%\ETS2OMSI\ETS2OMSI.log` (Windows tuşu + R → bu yolu yapıştır).
 - Her aracın klasöründe `conversion_report.json` ve rapor metni var; hata/uyarılar orada yazar.
 - Cam texture'ı ve bazı jantlar (golf_wheel, bmw_wheel...) ETS2'nin kendi base.scs dosyasında olduğu için yedek (fallback) texture ile gelir, bu normal.

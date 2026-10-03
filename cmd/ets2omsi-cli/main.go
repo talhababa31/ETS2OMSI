@@ -24,7 +24,7 @@ func main() {
 	pix := flag.String("converterpix", "", "optional ConverterPIX executable override")
 	flag.Parse()
 	if strings.TrimSpace(*input) == "" {
-		fmt.Fprintln(os.Stderr, "usage: ETS2OMSI_V2_2_MATERIAL_PHYSICS_CLI.exe -input traffic_pack.scs [-convert ready -out output]")
+		fmt.Fprintln(os.Stderr, "usage: ETS2OMSI_CLI.exe -input traffic_pack.scs [-convert ready -out output]")
 		os.Exit(2)
 	}
 	p, err := app.ScanProject(app.ScanOptions{PackagePath: *input})
