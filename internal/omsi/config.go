@@ -10,9 +10,10 @@ import (
 
 type MaterialOverride struct {
 	Texture   string `json:"texture"`
-	Instance  int    `json:"instance"`
+	Instance  int    `json:"instance"` // nth material of the mesh with this texture
 	AlphaMode int    `json:"alpha_mode"`
 	Class     string `json:"class,omitempty"`
+	Glow      string `json:"glow,omitempty"` // lamp glass lit while this variable is on
 }
 type LOD struct {
 	ScreenSize float64            `json:"screen_size"`
@@ -26,13 +27,68 @@ type Wheel struct {
 	Radius float64 `json:"radius"`
 	Width  float64 `json:"width"`
 }
+
+// PointLight is one [light_enh_2] lamp. Positions and directions are in
+// model.cfg vehicle axes (x right, y forward, z up), the frame the wheel
+// origin_trans lines use; only the O3D meshes store Y up / Z forward.
 type PointLight struct {
-	X, Y, Z, DX, DY, DZ float64
-	R, G, B             int
-	Size                float64
-	Variable            string
-	Strength            float64
+	Kind                 string // LightHead ...
+	X, Y, Z, DX, DY, DZ  float64
+	R, G, B              int
+	Size                 float64
+	Variable             string // fading variable; "" = not exported
+	Strength             float64
+	ConeInner, ConeOuter float64 // degrees; 0 = 180/210
+	ZOffset              float64
+	Params, Cone         int     // +1 star, +2 no fog effect; fog cone 0/1
+	TimeConst            float64 // seconds to 63 %; 0 = 0.03
 }
+
+// Light functions of a converted car.
+const (
+	LightHead    = "head"
+	LightTail    = "tail"
+	LightBrake   = "brake"
+	LightBlinker = "blinker"
+	LightReverse = "reverse"
+)
+
+// AI car light variables. OMSI writes AI_Light (0 off, 0.5 parking light,
+// 1 on, 2 headlight flash) and AI_Brakelight on every AI vehicle; the
+// flashing blinker outputs come from the stock Scripts\AI_Cars\main_AI.osc
+// (declared in AI_Cars\lights_varlist.txt, which the OVH loads).
+const (
+	VarLight    = "AI_Light"
+	VarBrake    = "AI_Brakelight"
+	VarBlinkerL = "lights_blinker_l"
+	VarBlinkerR = "lights_blinker_r"
+)
+
+// NewLight returns a lamp of the given function at (x, y, z) shining along
+// dirY (+1 forward, -1 backward), with the cone/fog/timing values of stock
+// OMSI vehicle lamps. A reverse light gets no variable: OMSI AI cars never
+// reverse in traffic and their scripts have no reverse-light variable.
+func NewLight(kind string, x, y, z, dirY float64) PointLight {
+	l := PointLight{Kind: kind, X: x, Y: y, Z: z, DY: dirY, ConeInner: 180, ConeOuter: 210, Strength: 1, ZOffset: .1, Params: 3, TimeConst: .03}
+	switch kind {
+	case LightHead:
+		l.R, l.G, l.B, l.Size, l.Variable = 255, 245, 220, .18, VarLight
+		l.ConeInner, l.ConeOuter, l.ZOffset, l.Params, l.Cone, l.TimeConst = 150, 200, .15, 1, 1, .1
+	case LightTail:
+		l.R, l.G, l.B, l.Size, l.Variable, l.Strength = 255, 0, 0, .14, VarLight, .6
+	case LightBrake:
+		l.R, l.G, l.B, l.Size, l.Variable = 255, 0, 0, .18, VarBrake
+	case LightBlinker:
+		l.R, l.G, l.B, l.Size, l.Variable = 255, 160, 0, .13, VarBlinkerR
+		if x < 0 {
+			l.Variable = VarBlinkerL
+		}
+	case LightReverse:
+		l.R, l.G, l.B, l.Size, l.Strength, l.TimeConst = 255, 255, 240, .12, .8, .05
+	}
+	return l
+}
+
 type PhysicsProfile struct {
 	Profile       string  `json:"profile"`
 	Mass          float64 `json:"mass_t"`
@@ -101,21 +157,12 @@ func ModelCFG(v VehicleSpec) string {
 		body = "body.o3d"
 	}
 	writeMeshBlock(&b, body, v.Materials)
+	// Lights belong to the [mesh] before them and move with its animation,
+	// so they follow the static body, not a rotating wheel. OMSI draws a
+	// model's lights whatever [LOD] level their mesh is in, so they are
+	// written once: repeating them per level would stack the coronas.
+	writeLights(&b, v.Lights)
 	writeWheelBlocks(&b, v)
-	for _, l := range v.Lights {
-		if strings.TrimSpace(l.Variable) == "" {
-			continue
-		}
-		sz := l.Size
-		if sz <= 0 {
-			sz = .25
-		}
-		st := l.Strength
-		if st <= 0 {
-			st = 1
-		}
-		fmt.Fprintf(&b, "\r\n[light_enh_2]\r\n%.6f\r\n%.6f\r\n%.6f\r\n%.6f\r\n%.6f\r\n%.6f\r\n0\r\n0\r\n1\r\n0\r\n0\r\n%d\r\n%d\r\n%d\r\n%.3f\r\n220\r\n250\r\n%s\r\n%.3f\r\n0.1\r\n1\r\n1\r\n0.04\r\n", l.X, l.Y, l.Z, l.DX, l.DY, l.DZ, clamp255(l.R), clamp255(l.G), clamp255(l.B), sz, l.Variable, st)
-	}
 	for _, lod := range v.LODs {
 		if strings.TrimSpace(lod.File) == "" {
 			continue
@@ -127,6 +174,35 @@ func ModelCFG(v VehicleSpec) string {
 		writeWheelBlocks(&b, v)
 	}
 	return b.String()
+}
+
+// writeLights writes the 24-line [light_enh_2] blocks: pos, dir, up, omni,
+// rotating, rgb, size, inner/outer cone, variable, factor, z-offset,
+// parameters, fog cone, timeconst and an empty bitmap line (standard glow).
+func writeLights(b *strings.Builder, lights []PointLight) {
+	for _, l := range lights {
+		if strings.TrimSpace(l.Variable) == "" {
+			continue
+		}
+		sz := l.Size
+		if sz <= 0 {
+			sz = .25
+		}
+		st := l.Strength
+		if st <= 0 {
+			st = 1
+		}
+		in, out := l.ConeInner, l.ConeOuter
+		if out <= 0 {
+			in, out = 180, 210
+		}
+		tc := l.TimeConst
+		if tc <= 0 {
+			tc = .03
+		}
+		fmt.Fprintf(b, "\r\n[light_enh_2]\r\n%.6f\r\n%.6f\r\n%.6f\r\n%.6f\r\n%.6f\r\n%.6f\r\n0\r\n0\r\n1\r\n0\r\n0\r\n%d\r\n%d\r\n%d\r\n%.3f\r\n%g\r\n%g\r\n%s\r\n%.3f\r\n%.3f\r\n%d\r\n%d\r\n%.3f\r\n\r\n",
+			l.X, l.Y, l.Z, l.DX, l.DY, l.DZ, clamp255(l.R), clamp255(l.G), clamp255(l.B), sz, in, out, l.Variable, st, math.Max(0, l.ZOffset), l.Params, l.Cone, tc)
+	}
 }
 
 func writeMeshBlock(b *strings.Builder, file string, mats []MaterialOverride) {
@@ -172,6 +248,25 @@ func writeMaterials(b *strings.Builder, m []MaterialOverride) {
 		if x.AlphaMode > 0 {
 			fmt.Fprintf(b, "[matl_alpha]\r\n%d\r\n", x.AlphaMode)
 		}
+		if strings.TrimSpace(x.Glow) != "" {
+			writeGlow(b, x)
+		}
+	}
+}
+
+// writeGlow lights lamp glass up with its lamp: [matl_change] switches the
+// slot to a [matl_item] (a copy of the plain material) whose night map, the
+// lamp texture itself, glows at full strength while the variable is on.
+// OMSI rounds the variable and shows item n for n = 1..items, so AI_Light
+// (2 = headlight flash) gets a second item.
+func writeGlow(b *strings.Builder, x MaterialOverride) {
+	fmt.Fprintf(b, "[matl_change]\r\n%s\r\n%d\r\n%s\r\n", x.Texture, x.Instance, x.Glow)
+	items := 1
+	if x.Glow == VarLight {
+		items = 2
+	}
+	for i := 0; i < items; i++ {
+		fmt.Fprintf(b, "[matl_item]\r\n[matl_nightmap]\r\n%s\r\n", x.Texture)
 	}
 }
 func clamp255(x int) int {

@@ -62,18 +62,20 @@ type TextureReport struct {
 	Unresolved         []string `json:"unresolved,omitempty"`
 }
 type AutoReport struct {
-	WheelBasis     string  `json:"wheel_basis"`
-	WheelVisuals   int     `json:"wheel_visuals"`
-	WheelModels    int     `json:"wheel_models"`
-	LightBasis     string  `json:"light_basis"`
-	Lights         int     `json:"lights"`
-	Width          float64 `json:"width"`
-	Length         float64 `json:"length"`
-	Height         float64 `json:"height"`
-	PhysicsProfile string  `json:"physics_profile,omitempty"`
-	VehicleClass   string  `json:"vehicle_class,omitempty"`
-	ClassBasis     string  `json:"class_basis,omitempty"`
-	EstimatedMass  float64 `json:"estimated_mass_t,omitempty"`
+	WheelBasis     string         `json:"wheel_basis"`
+	WheelVisuals   int            `json:"wheel_visuals"`
+	WheelModels    int            `json:"wheel_models"`
+	LightBasis     string         `json:"light_basis"`
+	Lights         int            `json:"lights"`                        // exported [light_enh_2] lamps
+	LightKinds     map[string]int `json:"light_kinds,omitempty"`         // head/tail/brake/blinker counts
+	LampGlow       int            `json:"lamp_glow_materials,omitempty"` // body lamp materials lit by [matl_change]
+	Width          float64        `json:"width"`
+	Length         float64        `json:"length"`
+	Height         float64        `json:"height"`
+	PhysicsProfile string         `json:"physics_profile,omitempty"`
+	VehicleClass   string         `json:"vehicle_class,omitempty"`
+	ClassBasis     string         `json:"class_basis,omitempty"`
+	EstimatedMass  float64        `json:"estimated_mass_t,omitempty"`
 }
 type ValidationReport struct {
 	O3DReadbackOK      bool       `json:"o3d_readback_ok"`
@@ -434,8 +436,17 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 			rep.Textures.Unresolved = uniqueStringsLocal(append(rep.Textures.Unresolved, d.Alias+" -> "+d.Ref))
 		}
 	}
-	rep.Auto.LightBasis = "V2.2 exterior-only: ETS2 gameplay light helpers intentionally ignored"
-	rep.Auto.Lights = 0
+	lights, lightBasis := detectLights(converted[0].sc)
+	rep.Auto.LightBasis = lightBasis
+	rep.Auto.Lights, rep.Auto.LightKinds = lightCounts(lights)
+	for _, m := range bodyMats {
+		if m.Glow != "" {
+			rep.Auto.LampGlow++
+		}
+	}
+	if rep.Auto.Lights == 0 {
+		rep.Warnings = append(rep.Warnings, "no ETS2 light locators or lamp materials were found; the vehicle has no working lights in OMSI")
+	}
 
 	rep.Stage = "write OMSI vehicle"
 	class, classBasis := detectVehicleClass(opt.Vehicle.DisplayName+" "+opt.Vehicle.ID, converted[0].sc)
@@ -449,7 +460,7 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 	spec := omsi.VehicleSpec{
 		Name: folder, Type: "car",
 		Length: mainBounds.Length(), Width: mainBounds.Width(), Height: mainBounds.Height(),
-		Wheels: wheels, WheelFiles: wheelFiles, Materials: bodyMats, LODs: lods, Lights: nil,
+		Wheels: wheels, WheelFiles: wheelFiles, Materials: bodyMats, LODs: lods, Lights: lights,
 		HighDetailScreenSize: .080, Physics: physics,
 	}
 	if er = omsi.Write(stage, spec); er != nil {
@@ -1490,12 +1501,18 @@ func sceneFaceOpposesNormals(v []scene.Vertex, a, b, c int) bool {
 
 func materialOverrides(sc scene.Scene) []omsi.MaterialOverride {
 	out := []omsi.MaterialOverride{}
+	lamps := analyzeLamps(&sc)
+	nth := map[string]int{}
 	for i, m := range sc.Materials {
 		a := 0
 		if m.Alpha {
 			a = 2
 		}
-		out = append(out, omsi.MaterialOverride{Texture: m.Texture, Instance: i, AlphaMode: a, Class: m.Class})
+		// [matl] <texture> <n> picks the nth material of the mesh that uses
+		// this texture, not the material's place in the mesh.
+		key := strings.ToLower(m.Texture)
+		out = append(out, omsi.MaterialOverride{Texture: m.Texture, Instance: nth[key], AlphaMode: a, Class: m.Class, Glow: lampGlow(&sc, lamps, i)})
+		nth[key]++
 	}
 	return out
 }
@@ -1581,47 +1598,6 @@ func validateGround(wheels map[string]omsi.Wheel, body scene.Bounds) bool {
 	return math.Abs(body.Min.Z) < .08
 }
 
-func detectLights(sc scene.Scene) ([]omsi.PointLight, string) {
-	out := []omsi.PointLight{}
-	for _, l := range sc.Locators {
-		n := strings.ToLower(l.Name + " " + l.Hookup)
-		var v string
-		var r, g, b int
-		dy := 1.0
-		if strings.Contains(n, "head") || strings.Contains(n, "low_beam") {
-			v = "AI_Light"
-			r, g, b = 255, 245, 220
-			dy = 1
-		} else if strings.Contains(n, "brake") {
-			v = "AI_Brakelight"
-			r, g, b = 255, 0, 0
-			dy = -1
-		} else if strings.Contains(n, "tail") || strings.Contains(n, "rear_light") {
-			v = "AI_Light"
-			r, g, b = 255, 0, 0
-			dy = -1
-		} else if strings.Contains(n, "blinker") || strings.Contains(n, "indicator") || strings.Contains(n, "turn") {
-			if l.Position.X < 0 {
-				v = "lights_blinker_l"
-			} else {
-				v = "lights_blinker_r"
-			}
-			r, g, b = 255, 130, 0
-			dy = map[bool]float64{true: 1, false: -1}[l.Position.Y > 0]
-		} else if strings.Contains(n, "reverse") {
-			v = "lights_rueckfahr"
-			r, g, b = 255, 255, 235
-			dy = -1
-		}
-		if v != "" {
-			out = append(out, omsi.PointLight{X: l.Position.X, Y: l.Position.Y, Z: l.Position.Z, DY: dy, R: r, G: g, B: b, Size: .22, Variable: v, Strength: 1})
-		}
-	}
-	if len(out) > 0 {
-		return out, "ETS2 light/hookup locators"
-	}
-	return nil, "no high-confidence light locators; no guessed lights exported"
-}
 func validateAllO3DTextureRefs(stage string) []string {
 	missing := []string{}
 	seen := map[string]bool{}
@@ -1710,7 +1686,7 @@ func listRelative(root string) []string {
 }
 
 func textReport(r Report) string {
-	return fmt.Sprintf("ETS2OMSI V2.6.0 Conversion Report\r\nVehicle: %s\r\nStatus: %s\r\nOutput: %s\r\nModels: %d\r\nTextures copied: %d\r\nExact texture bindings: %d\r\nOn-demand package textures: %d\r\nUnresolved visible textures: %d\r\nDimensions LxWxH: %.3f x %.3f x %.3f m\r\nO3D XYZ dims: %.3f x %.3f x %.3f m\r\nOrientation: %t\r\nGround: %t\r\nWheel meshes: %d\r\nWheel basis: %s\r\nWarnings: %d\r\nErrors: %d\r\n", r.Name, r.Status, r.Output, len(r.Models), r.Textures.Copied, r.Textures.ExactResolved, r.Textures.OnDemandResolved, len(r.Textures.Unresolved), r.Auto.Length, r.Auto.Width, r.Auto.Height, r.Validation.O3DDimensions[0], r.Validation.O3DDimensions[1], r.Validation.O3DDimensions[2], r.Validation.OrientationOK, r.Validation.GroundOK, r.Validation.WheelMeshes, r.Auto.WheelBasis, len(r.Warnings), len(r.Errors))
+	return fmt.Sprintf("ETS2OMSI V2.6.0 Conversion Report\r\nVehicle: %s\r\nStatus: %s\r\nOutput: %s\r\nModels: %d\r\nTextures copied: %d\r\nExact texture bindings: %d\r\nOn-demand package textures: %d\r\nUnresolved visible textures: %d\r\nDimensions LxWxH: %.3f x %.3f x %.3f m\r\nO3D XYZ dims: %.3f x %.3f x %.3f m\r\nOrientation: %t\r\nGround: %t\r\nWheel meshes: %d\r\nWheel basis: %s\r\nLights: %d (%s)\r\nWarnings: %d\r\nErrors: %d\r\n", r.Name, r.Status, r.Output, len(r.Models), r.Textures.Copied, r.Textures.ExactResolved, r.Textures.OnDemandResolved, len(r.Textures.Unresolved), r.Auto.Length, r.Auto.Width, r.Auto.Height, r.Validation.O3DDimensions[0], r.Validation.O3DDimensions[1], r.Validation.O3DDimensions[2], r.Validation.OrientationOK, r.Validation.GroundOK, r.Validation.WheelMeshes, r.Auto.WheelBasis, r.Auto.Lights, r.Auto.LightBasis, len(r.Warnings), len(r.Errors))
 }
 
 func fileExists(p string) bool {

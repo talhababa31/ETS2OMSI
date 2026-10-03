@@ -93,6 +93,8 @@ function updateProgress(run,done,name){
   let eta='';if(done>0&&done<total){const per=(Date.now()-run.start)/done,left=Math.round(per*(total-done)/1000);eta=` · kalan ~${left>90?Math.round(left/60)+' dk':left+' sn'}`}
   $('#exportNow').innerHTML=name?`<b>${done+1} / ${total}</b> · ${esc(name)} dönüştürülüyor…${eta}`:`<b>${done} / ${total}</b> tamamlandı`;
 }
+const LIGHT_TR={head:'far',tail:'arka',brake:'fren',blinker:'sinyal'};
+function lightFact(a){const k=a.light_kinds||{},t=Object.keys(LIGHT_TR).filter(x=>k[x]).map(x=>`${LIGHT_TR[x]} ${k[x]}`).concat(a.lamp_glow_materials?[`${a.lamp_glow_materials} lamba camı yanar`]:[]).join(' · ');return a.lights?`<span class="fact" title="${esc(t)}">Işık ${a.lights}</span>`:`<span class="fact warn" title="${esc(a.light_basis||'')}">Işık yok</span>`}
 function itemState(x){const r=x.report||{};if(x.error||r.status==='fail')return'bad';return r.status==='warn'?'warn':'ok'}
 function exportCard(x,i){
   const r=x.report||{},st=itemState(x),a=r.automation||{},val=r.validation||{},tex=r.textures||{};
@@ -102,7 +104,7 @@ function exportCard(x,i){
   const facts=st==='bad'?`<span class="fact bad">Aşama: ${esc(r.stage||'dönüşüm')}</span>`:[
     a.vehicle_class?`<span class="fact">${esc(classLabel(a.vehicle_class))}${a.class_basis?` <small>(${esc(a.class_basis)})</small>`:''}</span>`:'',
     `<span class="fact">${dots} ${cols.length+1} renk</span>`,
-    `<span class="fact">Teker ${val.wheel_meshes||0}/4</span>`,
+    `<span class="fact">Teker ${val.wheel_meshes||0}/4</span>`,lightFact(a),
     `<span class="fact">${tex.copied||0} texture</span>`,
     a.estimated_mass_t?`<span class="fact">${a.estimated_mass_t} t</span>`:''].join('');
   const label={ok:'OMSI HAZIR',warn:'UYARILI',bad:'HATA'}[st];

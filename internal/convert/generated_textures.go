@@ -126,21 +126,7 @@ func isWheelScene(sc *scene.Scene) bool {
 // < 0 in the rear half. Front is where the ETS2 front wheel locators are
 // (wheel_f*), else +Y as in estimatedWheelPlacements.
 func materialFrontness(sc *scene.Scene, mat int) float64 {
-	front := 1.0
-	var fy, ry float64
-	var fn, rn int
-	for _, p := range wheelPlacements(*sc) {
-		if p.Family == "f" {
-			fy += p.Pos.Y
-			fn++
-		} else if p.Family == "r" {
-			ry += p.Pos.Y
-			rn++
-		}
-	}
-	if fn > 0 && rn > 0 && fy/float64(fn) < ry/float64(rn) {
-		front = -1
-	}
+	front := frontSign(sc)
 	b := sc.Bounds()
 	mid := (b.Min.Y + b.Max.Y) / 2
 	var sum float64
