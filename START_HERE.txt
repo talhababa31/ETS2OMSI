@@ -1,0 +1,13 @@
+ETS2OMSI V2.2 MATERIAL + PHYSICS — SCS ONLY
+
+1) Run ETS2OMSI_V2_2_MATERIAL_PHYSICS.exe
+2) Choose the traffic .SCS package
+3) Click "Arabaları Bul"
+4) Select a READY car
+5) Optional: use "Seçileni Ayır" to inspect its package-local source
+6) Preview SOURCE / OMSI FINAL
+7) Click "OMSI'ye Dönüştür"
+8) Check Yön / Zemin / Teker / O3D validation in the result card
+9) Copy the generated vehicle folder into OMSI 2\Vehicles when ready
+
+ETS2 installation is NOT required.

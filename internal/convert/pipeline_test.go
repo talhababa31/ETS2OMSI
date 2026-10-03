@@ -1,0 +1,92 @@
+package convert
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"ets2omsi/internal/scanner"
+	"ets2omsi/internal/scene"
+)
+
+func TestConversionAssetsPreferSemanticMainAndLOD(t *testing.T) {
+	v := scanner.Vehicle{Models: []string{"/vehicle/car/detail.pmd", "/vehicle/car/lod.pmd", "/vehicle/car/main.pmd"}, ModelAssets: []scanner.ModelAsset{
+		{Path: "/vehicle/car/detail.pmd", Role: "detail"},
+		{Path: "/vehicle/car/lod.pmd", Role: "lod"},
+		{Path: "/vehicle/car/main.pmd", Role: "main"},
+	}}
+	got := conversionAssets(v)
+	if len(got) != 2 {
+		t.Fatalf("got %#v", got)
+	}
+	if got[0].Role != "main" || got[0].Path != "/vehicle/car/main.pmd" {
+		t.Fatalf("main=%+v", got[0])
+	}
+	if got[1].Role != "lod" {
+		t.Fatalf("lod=%+v", got[1])
+	}
+}
+
+func TestBuildManifest(t *testing.T) {
+	d := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(d, "model"), 0755)
+	_ = os.WriteFile(filepath.Join(d, "model", "body.o3d"), []byte("abc"), 0644)
+	got := buildManifest(d)
+	if len(got) != 1 || got[0].Path != "model/body.o3d" || got[0].SHA256 == "" {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestTexturelessGlassGetsSemanticOMSIGlass(t *testing.T) {
+	d := t.TempDir()
+	sc := scene.Scene{Materials: []scene.Material{{Index: 0, Alias: "mat_0001_glass_ex", Effect: "eut2.glass"}}}
+	tr := TextureReport{}
+	warnings := []string{}
+	unresolved := applyMaterials(&sc, map[string][]string{}, map[string]string{}, d, &tr, &warnings)
+	if len(unresolved) != 0 {
+		t.Fatalf("textureless glass must not be unresolved: %#v", unresolved)
+	}
+	if sc.Materials[0].Texture != "semantic_glass.png" || !sc.Materials[0].Alpha || sc.Materials[0].Class != "glass" {
+		t.Fatalf("material=%+v", sc.Materials[0])
+	}
+	if _, err := os.Stat(filepath.Join(d, "semantic_glass.png")); err != nil {
+		t.Fatalf("semantic glass not generated: %v", err)
+	}
+}
+
+func TestExplicitMissingGlassTextureStillFails(t *testing.T) {
+	d := t.TempDir()
+	sc := scene.Scene{Materials: []scene.Material{{Index: 0, Alias: "mat_0001_glass_ex", Effect: "eut2.glass"}}}
+	tr := TextureReport{}
+	warnings := []string{}
+	hints := map[string][]string{"mat_0001_glass_ex": {"/vehicle/car/glass.tobj"}}
+	unresolved := applyMaterials(&sc, hints, map[string]string{}, d, &tr, &warnings)
+	if len(unresolved) != 1 || unresolved[0] != "mat_0001_glass_ex" {
+		t.Fatalf("explicit missing glass texture must remain fatal: %#v", unresolved)
+	}
+}
+
+func TestSafeFallbackConvertsUnresolvedBodyAndGlass(t *testing.T) {
+	d := t.TempDir()
+	sc := scene.Scene{Materials: []scene.Material{
+		{Index: 0, Alias: "mat_0000_body", Effect: "eut2.dif"},
+		{Index: 1, Alias: "mat_0001_glass_ex", Effect: "eut2.glass"},
+	}}
+	tr := TextureReport{}
+	warnings := []string{}
+	applySafeMaterialFallbacks(&sc, []string{"mat_0000_body", "mat_0001_glass_ex"}, d, &tr, &warnings)
+	if sc.Materials[0].Texture != "fallback_body.png" {
+		t.Fatalf("body fallback=%q", sc.Materials[0].Texture)
+	}
+	if sc.Materials[1].Texture != "fallback_glass.png" || !sc.Materials[1].Alpha {
+		t.Fatalf("glass fallback=%+v", sc.Materials[1])
+	}
+	for _, name := range []string{"fallback_body.png", "fallback_glass.png"} {
+		if _, err := os.Stat(filepath.Join(d, name)); err != nil {
+			t.Fatalf("%s missing: %v", name, err)
+		}
+	}
+	if len(warnings) != 2 {
+		t.Fatalf("warnings=%#v", warnings)
+	}
+}

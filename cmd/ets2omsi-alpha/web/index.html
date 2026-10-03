@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ETS2 → OMSI 2 AI Converter V2</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="noise"></div>
+<div class="app-shell">
+  <header class="topbar glass">
+    <div class="brand"><div class="brand-mark">V2</div><div><div class="eyebrow">SCS ONLY</div><h1>ETS2 → OMSI 2 AI Converter</h1></div></div>
+    <div class="top-actions"><span id="toolBadge" class="badge neutral">3D Engine · otomatik</span><span class="badge">V2</span><button id="themeToggle" class="icon-button" title="Tema">◐</button></div>
+  </header>
+
+  <main>
+    <section class="hero card hero-grid">
+      <div class="hero-copy">
+        <div class="kicker"><span class="pulse"></span> TRAFFIC .SCS → OMSI .OVH</div>
+        <h2>Sadece trafik paketini seç.<br><span>Arabaları biz ayıralım.</span></h2>
+        <p>ETS2 kurulumu, DLC, tır veya otobüs gerektirmez. V2 yalnızca seçtiğin .SCS içindeki AI otomobillerin dış 3D modelini, texture'larını ve hazır LOD'larını OMSI 2 AI aracına dönüştürür.</p>
+      </div>
+      <div id="dropZone" class="drop-zone">
+        <div class="drop-icon">↓</div><strong>Traffic .SCS dosyasını bırak</strong><small>ZIP veya desteklenen SCS paketi</small><button id="browseBtn" class="secondary">SCS Dosyası Seç</button>
+      </div>
+      <div class="picker-row wide"><input id="pathInput" placeholder="C:\...\traffic_pack.scs" spellcheck="false"><button id="scanBtn" class="primary">Arabaları Bul <span>→</span></button></div>
+      <div id="helperHint" class="hint hidden"></div>
+    </section>
+
+    <section class="settings-strip card v2-settings">
+      <div class="setting-block grow"><label>Çıktı klasörü</label><div class="inline-field"><input id="outputRoot" placeholder="Boş bırakırsan output klasörü"><button id="pickOutput" class="mini">Seç</button></div><small>Her otomobil ayrı OMSI vehicle klasörüne yazılır.</small></div>
+      <div class="v2-rule"><b>SCS ONLY</b><span>ETS2 kurulumu kullanılmaz.</span></div>
+      <div class="v2-rule"><b>CAR ONLY</b><span>Tır ve otobüs listelenmez.</span></div>
+      <div class="v2-rule"><b>EXTERIOR ONLY</b><span>İç mekan / oyuncu sistemi yok.</span></div>
+    </section>
+
+    <section id="scanState" class="scan-state hidden card"><div class="spinner"></div><div><strong>Paket içindeki AI arabalar ayrılıyor…</strong><p>Traffic root → chassis → PMD/PMG → araç bazlı model paketi</p></div></section>
+
+    <section id="resultArea" class="hidden">
+      <div class="summary-grid v2-summary">
+        <div class="metric card"><span id="vehicleCount">0</span><small>AI Cars</small></div>
+        <div class="metric card"><span id="readyCount">0</span><small>OMSI'ye hazır</small></div>
+        <div class="metric card"><span id="modelCount">0</span><small>Modeli çözülen</small></div>
+        <div class="metric card"><span id="fileCount">0</span><small>SCS dosyası</small></div>
+      </div>
+
+      <section class="workspace">
+        <div class="vehicle-panel card">
+          <div class="section-head"><div><div class="soft-label">TRAFFIC PACKAGE</div><h3 id="packageName">package.scs</h3><p id="packageMeta" class="muted"></p></div><div class="row-actions"><button id="selectReadyBtn" class="ghost">Hazırların Tümü</button><button id="clearBtn" class="ghost">Temizle</button></div></div>
+          <div class="filter-row v2-filter"><input id="searchInput" placeholder="Araba ara…"><select id="statusFilter"><option value="all">Tümü</option><option value="ready">Hazır</option><option value="model_missing">Model bekliyor</option><option value="blocked">Sorunlu</option></select></div>
+          <div id="vehicleList" class="vehicle-list"></div>
+        </div>
+        <aside id="detailsPanel" class="details card"><div class="empty-state"><div class="big-icon">◇</div><h3>Bir araba seç</h3><p>Ana model, LOD'lar ve package-local dosyaları burada göreceksin.</p></div></aside>
+      </section>
+
+      <section id="previewPanel" class="preview-panel card hidden">
+        <div class="section-head"><div><div class="soft-label">3D PREVIEW</div><h3 id="previewTitle">Model</h3><p class="muted">SCS içindeki gerçek dış model</p></div><div class="row-actions"><button id="previewSource" class="ghost">SOURCE</button><button id="previewFinal" class="ghost">OMSI FINAL</button><button id="closePreview" class="ghost">Kapat</button></div></div>
+        <div class="preview-grid"><div class="canvas-wrap"><canvas id="previewCanvas"></canvas><div id="previewLoading" class="preview-loading hidden"><div class="spinner"></div><span>3D model çözülüyor…</span></div></div><div id="previewInfo" class="preview-info"></div></div>
+      </section>
+
+      <section id="conversionPanel" class="conversion-panel card hidden">
+        <div class="section-head"><div><div class="soft-label">SONUÇ</div><h3>Dönüşüm</h3></div><span id="conversionState" class="state-pill">Bekliyor</span></div>
+        <div id="conversionList" class="conversion-list"></div>
+      </section>
+
+      <section class="bottom-bar glass">
+        <div><strong id="selectedText">0 araba seçildi</strong><p id="mountText">Yalnızca seçilen .SCS kullanılacak.</p></div>
+        <div class="bottom-actions"><button id="extractBtn" class="secondary" disabled>Seçileni Ayır</button><button id="convertBtn" class="primary" disabled>OMSI'ye Dönüştür →</button></div>
+      </section>
+    </section>
+
+    <section id="errorBox" class="error-box card hidden"></section>
+  </main>
+  <footer><span>ETS2OMSI V2.2 Material + Physics</span><span>SCS-only · AI cars · exterior model · OMSI OVH</span></footer>
+</div>
+<script src="app.js"></script>
+</body></html>
