@@ -5,7 +5,6 @@ import (
 	"path"
 	"regexp"
 	"strings"
-
 )
 
 // Texture name helpers shared by the resolver and the ConverterPIX-export
@@ -73,4 +72,3 @@ func tobjTexturePath(data []byte) string {
 	}
 	return ""
 }
-
