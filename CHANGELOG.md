@@ -2,6 +2,11 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr-TR/1.1.0/) esas alınarak hazırlanmıştır.
 
+## [2.5.1] — 2026-10-03
+
+### Düzeltildi
+- **Renk çeşitleri OMSI'de görünmüyordu:** OMSI'de `[matl]` texture değiştirmez, O3D içindeki materyali texture adıyla seçer; farklı texture adı yazılan çeşitler bu yüzden orijinal renkte kalıyordu. Her renk artık kendi gövde ve LOD O3D dosyalarını (`body_<renk>.o3d`) alır; texture'lar O3D'nin içindedir. Tekerlekler ortak kalır.
+
 ## [2.5.0] — 2026-10-03
 
 ### Eklendi

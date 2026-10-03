@@ -63,7 +63,7 @@ ETS2OMSI_<Araç>/
 ├── <Araç>_<renk>.ovh        (renk çeşitleri)
 ├── model/
 │   ├── model.cfg · model_<renk>.cfg
-│   ├── body.o3d
+│   ├── body.o3d · body_<renk>.o3d
 │   ├── lod_*.o3d
 │   └── wheel_fl.o3d · wheel_fr.o3d · wheel_rl.o3d · wheel_rr.o3d
 ├── texture/

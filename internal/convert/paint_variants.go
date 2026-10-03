@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"ets2omsi/internal/o3d"
 	"ets2omsi/internal/omsi"
 	"ets2omsi/internal/pixtext"
 	"ets2omsi/internal/scene"
@@ -238,11 +239,13 @@ type ColorVariant struct {
 	Kind  string `json:"kind"` // look | paint
 }
 
-// colorVariantSet describes material overrides of one variant.
+// colorVariantSet holds the recoloured scenes of one variant. OMSI's [matl]
+// only SELECTS a material by the texture name stored in the O3D; it cannot
+// swap textures. So every variant gets its own O3D files with its textures.
 type colorVariantSet struct {
 	variant ColorVariant
-	body    []omsi.MaterialOverride
-	lods    [][]omsi.MaterialOverride
+	body    *scene.Scene
+	lods    []*scene.Scene
 }
 
 func sanitizeID(s string) string {
@@ -299,17 +302,19 @@ func exportColorVariants(stage string, spec omsi.VehicleSpec, converted []conver
 	for k, l := range spec.LODs {
 		lodOf[l.File] = k
 	}
-	collect := func(v ColorVariant, mats func(i int, cm *convertedModel) []omsi.MaterialOverride) {
-		set := colorVariantSet{variant: v, lods: make([][]omsi.MaterialOverride, len(spec.LODs))}
+	collect := func(v ColorVariant, mats func(i int, cm *convertedModel) scene.Scene) {
+		set := colorVariantSet{variant: v, lods: make([]*scene.Scene, len(spec.LODs))}
 		for i := range converted {
 			cm := &converted[i]
 			if i == 0 {
-				set.body = mats(i, cm)
+				sc := mats(i, cm)
+				set.body = &sc
 			} else if k, ok := lodOf[cm.o3dName]; ok {
-				set.lods[k] = mats(i, cm)
+				sc := mats(i, cm)
+				set.lods[k] = &sc
 			}
 		}
-		if set.body == nil || sameOverrides(set.body, spec.Materials) {
+		if set.body == nil || sameOverrides(materialOverrides(*set.body), spec.Materials) {
 			return
 		}
 		sets = append(sets, set)
@@ -323,7 +328,7 @@ func exportColorVariants(stage string, spec omsi.VehicleSpec, converted []conver
 			continue
 		}
 		id := "look_" + sanitizeID(look)
-		collect(ColorVariant{ID: id, Label: "ETS2 " + look, Kind: "look"}, func(i int, cm *convertedModel) []omsi.MaterialOverride {
+		collect(ColorVariant{ID: id, Label: "ETS2 " + look, Kind: "look"}, func(i int, cm *convertedModel) scene.Scene {
 			clone := cm.sc.Clone()
 			for j := range clone.Materials {
 				clone.Materials[j].Texture, clone.Materials[j].HasTint = "", false
@@ -336,7 +341,7 @@ func exportColorVariants(stage string, spec omsi.VehicleSpec, converted []conver
 				applySafeMaterialFallbacks(&clone, un, texDir, &tr, &w)
 			}
 			opaque.fixScene(&clone)
-			return materialOverrides(clone)
+			return clone
 		})
 	}
 
@@ -353,12 +358,12 @@ func exportColorVariants(stage string, spec omsi.VehicleSpec, converted []conver
 				continue
 			}
 			before := len(sets)
-			collect(ColorVariant{ID: p.ID, Label: p.Label, Kind: "paint"}, func(i int, cm *convertedModel) []omsi.MaterialOverride {
+			collect(ColorVariant{ID: p.ID, Label: p.Label, Kind: "paint"}, func(i int, cm *convertedModel) scene.Scene {
 				clone := cm.sc
 				clone.Materials = append([]scene.Material(nil), cm.sc.Materials...)
 				rc.recolorScene(&clone, p)
 				opaque.fixScene(&clone)
-				return materialOverrides(clone)
+				return clone
 			})
 			if len(sets) > before {
 				painted++
@@ -371,21 +376,46 @@ func exportColorVariants(stage string, spec omsi.VehicleSpec, converted []conver
 
 	out := []ColorVariant{}
 	for _, set := range sets {
+		id := set.variant.ID
 		vs := spec
-		vs.Materials = set.body
+		vs.BodyFile = "body_" + id + ".o3d"
+		if err := writeVariantO3D(filepath.Join(stage, "model", vs.BodyFile), *set.body); err != nil {
+			warnings = append(warnings, "colour variant "+id+": "+err.Error())
+			continue
+		}
+		vs.Materials = materialOverrides(*set.body)
 		vs.LODs = append([]omsi.LOD(nil), spec.LODs...)
 		for k := range vs.LODs {
-			if set.lods[k] != nil {
-				vs.LODs[k].Materials = set.lods[k]
+			if set.lods[k] == nil {
+				continue
 			}
+			f := strings.TrimSuffix(vs.LODs[k].File, ".o3d") + "_" + id + ".o3d"
+			if err := writeVariantO3D(filepath.Join(stage, "model", f), *set.lods[k]); err != nil {
+				continue // keep the shared LOD
+			}
+			vs.LODs[k].File = f
+			vs.LODs[k].Materials = materialOverrides(*set.lods[k])
 		}
-		ovh, err := omsi.WriteVariant(stage, vs, set.variant.ID, set.variant.Label)
+		ovh, err := omsi.WriteVariant(stage, vs, id, set.variant.Label)
 		if err != nil {
-			warnings = append(warnings, "colour variant "+set.variant.ID+": "+err.Error())
+			warnings = append(warnings, "colour variant "+id+": "+err.Error())
 			continue
 		}
 		set.variant.OVH = ovh
 		out = append(out, set.variant)
 	}
 	return out, warnings
+}
+
+func writeVariantO3D(path string, sc scene.Scene) error {
+	m := toO3D(sc)
+	if err := o3d.WriteFile(path, &m); err != nil {
+		return err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	_, err = o3d.Parse(b)
+	return err
 }

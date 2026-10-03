@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"ets2omsi/internal/o3d"
 	"ets2omsi/internal/omsi"
 	"ets2omsi/internal/scene"
 )
@@ -88,8 +89,18 @@ func TestExportColorVariantsWritesOVHs(t *testing.T) {
 			t.Fatalf("%s: %v\n%s", v.OVH, err, b)
 		}
 		cfg, _ := os.ReadFile(filepath.Join(stage, "model", "model_"+v.ID+".cfg"))
-		if !strings.Contains(string(cfg), "body_"+v.ID+".dds") {
-			t.Fatalf("cfg %s does not use recoloured texture:\n%s", v.ID, cfg)
+		if !strings.Contains(string(cfg), "[mesh]\r\nbody_"+v.ID+".o3d") {
+			t.Fatalf("cfg %s must load its own body O3D:\n%s", v.ID, cfg)
+		}
+		// OMSI takes textures from the O3D ([matl] only selects materials),
+		// so the recoloured texture must be inside the variant O3D.
+		raw, err := os.ReadFile(filepath.Join(stage, "model", "body_"+v.ID+".o3d"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, err := o3d.Parse(raw)
+		if err != nil || len(m.Materials) == 0 || m.Materials[0].Texture != "body_"+v.ID+".dds" {
+			t.Fatalf("variant O3D texture: err=%v mats=%+v", err, m.Materials)
 		}
 	}
 	if vs, _ := exportColorVariants(stage, spec, []convertedModel{cm}, r, newOpaqueFixer(tex), tex, []string{"none"}); len(vs) != 0 {
