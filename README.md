@@ -1,6 +1,6 @@
 <div align="center">
 
-# ETS2OMSI
+<img src="assets/brand/banner.png" alt="ETS2OMSI — Euro Truck Simulator 2 trafik araçları → OMSI 2" width="100%">
 
 **Euro Truck Simulator 2 trafik araçlarını OMSI 2 AI araçlarına dönüştürür.**
 
@@ -127,5 +127,6 @@ Derleme ayrıntıları: [BUILD.md](BUILD.md)
 
 - [ConverterPIX](https://github.com/mwl4/ConverterPIX) (LGPL-3.0) — ETS2 ikili modellerini çözmek için ayrı bir araç olarak kullanılır.
 - Kütüphaneler: [go-webview2](https://github.com/jchv/go-webview2).
+- Logo ve marka dosyaları: [`assets/brand`](assets/brand) (SVG, PNG, ICO).
 
 ETS2OMSI; ETS2, DLC, mod araç dosyaları veya OMSI içeriği dağıtmaz. Ayrıntı: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)

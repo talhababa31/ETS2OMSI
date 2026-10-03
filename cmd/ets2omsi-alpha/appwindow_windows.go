@@ -26,6 +26,7 @@ func platformRunWindow(url, dataDir string, quit <-chan struct{}) bool {
 			Width:  1440,
 			Height: 900,
 			Center: true,
+			IconId: 1, // application icon from rsrc_windows_amd64.syso
 		},
 	})
 	if w == nil {
