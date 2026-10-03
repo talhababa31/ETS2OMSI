@@ -136,7 +136,15 @@ func previewFromScene(v scanner.Vehicle, sc scene.Scene) PreviewData {
 		if t.A < 0 || t.B < 0 || t.C < 0 || t.A >= len(sc.Vertices) || t.B >= len(sc.Vertices) || t.C >= len(sc.Vertices) {
 			continue
 		}
-		p.Indices = append(p.Indices, add(t.A), add(t.B), add(t.C))
+		// Keep preview winding consistent with vertex normals, exactly like
+		// toO3D() does for the exported body. Without this the WebGL viewer
+		// shades ~all faces as back faces and the car renders almost black.
+		a, b, c := t.A, t.B, t.C
+		if sceneFaceOpposesNormals(sc.Vertices, a, b, c) {
+			b, c = c, b
+		}
+		ia, ib, ic := add(a), add(b), add(c)
+		p.Indices = append(p.Indices, ia, ib, ic)
 		mat := t.Material
 		if mat < 0 || mat >= len(p.Materials) {
 			mat = 0

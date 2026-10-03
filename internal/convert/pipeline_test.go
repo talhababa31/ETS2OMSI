@@ -3,6 +3,7 @@ package convert
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"ets2omsi/internal/scanner"
@@ -86,7 +87,14 @@ func TestSafeFallbackConvertsUnresolvedBodyAndGlass(t *testing.T) {
 			t.Fatalf("%s missing: %v", name, err)
 		}
 	}
-	if len(warnings) != 2 {
+	// Glass fallback is by design and must not be a warning; the body one is.
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "mat_0000_body") {
 		t.Fatalf("warnings=%#v", warnings)
+	}
+	// A second pass (LOD with the same material) must not duplicate it.
+	sc.Materials[0].Texture = ""
+	applySafeMaterialFallbacks(&sc, []string{"mat_0000_body"}, d, &tr, &warnings)
+	if len(warnings) != 1 {
+		t.Fatalf("duplicate warnings=%#v", warnings)
 	}
 }

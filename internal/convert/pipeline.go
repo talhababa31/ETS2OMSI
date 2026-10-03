@@ -458,6 +458,7 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 	snippet := fmt.Sprintf("vehicles\\%s\\%s.ovh\r\n", filepath.Base(final), folder)
 	_ = os.WriteFile(filepath.Join(stage, "ailists_snippet.txt"), []byte("; ETS2OMSI generated vehicle reference\r\n"+snippet), 0644)
 	rep.Stage = "complete"
+	rep.Warnings = uniqueStringsLocal(rep.Warnings)
 	rep.Status = "pass"
 	if len(rep.Errors) > 0 {
 		rep.Status = "fail"
@@ -888,7 +889,9 @@ func collectTextures(roots []string, dst string, index map[string]string) Textur
 				name = contentDest[fp]
 			}
 			if name == "" {
-				base := filepath.Base(p)
+				// OMSI texture names are written into O3D/model.cfg; keep them
+				// free of spaces.
+				base := strings.ReplaceAll(filepath.Base(p), " ", "_")
 				name = base
 				if usedNames[strings.ToLower(name)] {
 					name = shortHash(normalizeTextureKey(rel)) + "_" + base
@@ -914,6 +917,8 @@ func collectTextures(roots []string, dst string, index map[string]string) Textur
 			baseStem := strings.TrimSuffix(baseKey, filepath.Ext(baseKey))
 			addTextureIndex(index, baseKey, name)
 			addTextureIndex(index, baseStem, name)
+			addTextureIndex(index, tightIndexKey(textureTightKey(rel)), name)
+			addTextureIndex(index, tightIndexKey(textureTightBase(rel)), name)
 			return nil
 		})
 	}
@@ -997,9 +1002,15 @@ func resolveTextureHints(ctx context.Context, exe string, mounts []string, hints
 		refs = append(refs, vv...)
 	}
 	refs = uniqueStringsLocal(refs)
+	// Read the package directly first. This also recovers textures whose file
+	// name contains spaces and images without a .tobj, which ConverterPIX skips.
+	native, handled := resolvePackageTextures(mounts, refs, out)
 	okCount := 0
 	warnings := []string{}
 	for _, ref := range refs {
+		if handled[ref] {
+			continue
+		}
 		l := strings.ToLower(strings.TrimSpace(strings.Trim(ref, "\"'")))
 		var err error
 		switch {
@@ -1008,6 +1019,12 @@ func resolveTextureHints(ctx context.Context, exe string, mounts []string, hints
 		case strings.HasSuffix(l, ".dds"), strings.HasSuffix(l, ".png"), strings.HasSuffix(l, ".tga"), strings.HasSuffix(l, ".bmp"), strings.HasSuffix(l, ".jpg"), strings.HasSuffix(l, ".jpeg"):
 			_, err = pixbridge.ExtractFile(ctx, exe, mounts, ref, out)
 		default:
+			// PIT references are usually extensionless. Ask ConverterPIX for the
+			// matching TOBJ, but silently: base-game references are expected to
+			// be absent in SCS-only mode.
+			if _, e := pixbridge.ConvertTextureObject(ctx, exe, mounts, ref+".tobj", out); e == nil {
+				okCount++
+			}
 			continue
 		}
 		if err == nil {
@@ -1021,7 +1038,7 @@ func resolveTextureHints(ctx context.Context, exe string, mounts []string, hints
 			warnings = append(warnings, fmt.Sprintf("package texture reference could not be extracted: %s", ref))
 		}
 	}
-	return okCount, uniqueStringsLocal(warnings)
+	return native + okCount, uniqueStringsLocal(warnings)
 }
 
 func lookupTexture(index map[string]string, candidate string) string {
@@ -1044,7 +1061,21 @@ func lookupTexture(index map[string]string, candidate string) string {
 			return v
 		}
 	}
+	// Space/underscore-insensitive match: PIT "tableaudebord" must find
+	// "tableau de bord.dds". Ambiguous tight keys are rejected.
+	for _, k := range []string{tightIndexKey(textureTightKey(key)), tightIndexKey(textureTightBase(key))} {
+		if v := index[k]; v != "" && v != ambiguousTexture {
+			return v
+		}
+	}
 	return ""
+}
+
+func tightIndexKey(k string) string {
+	if k == "" {
+		return ""
+	}
+	return "tight:" + k
 }
 
 func converterPIXAliasTextureStem(alias string) string {
@@ -1138,7 +1169,7 @@ func applyMaterials(sc *scene.Scene, hints map[string][]string, index map[string
 					tr.GeneratedFallbacks++
 					tr.Files = append(tr.Files, tex)
 				}
-				*warnings = append(*warnings, fmt.Sprintf("textureless ETS2 glass material %d (%s) was mapped to OMSI transparent glass", i, m.Alias))
+				// Expected for legacy glass shaders: not a user-facing warning.
 			} else if optionalHelper {
 				tex = "optional_" + m.Class + ".png"
 				p := filepath.Join(texDir, tex)
@@ -1198,7 +1229,22 @@ func applySafeMaterialFallbacks(sc *scene.Scene, unresolved []string, texDir str
 			tr.Files = append(tr.Files, name)
 		}
 		m.Texture = name
-		*warnings = append(*warnings, fmt.Sprintf("SCS-only safe export: unresolved material %s received neutral OMSI %s fallback; conversion continues", label, class))
+		if class == "glass" {
+			// Shared ETS2 glass (e.g. /vehicle/truck/share/glass_ex) lives in
+			// base.scs; translucent OMSI glass is the intended SCS-only result.
+			continue
+		}
+		msg := fmt.Sprintf("SCS-only safe export: unresolved material %s received neutral OMSI %s fallback; conversion continues", label, class)
+		dup := false
+		for _, w := range *warnings {
+			if w == msg {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			*warnings = append(*warnings, msg)
+		}
 	}
 }
 
@@ -1316,6 +1362,25 @@ func faceOpposesNormals(v []o3d.Vertex, a, b, c uint32) bool {
 	anx := float64(p.NX + q.NX + r.NX)
 	any := float64(p.NY + q.NY + r.NY)
 	anz := float64(p.NZ + q.NZ + r.NZ)
+	if math.Abs(anx)+math.Abs(any)+math.Abs(anz) < 1e-9 {
+		return false
+	}
+	return nx*anx+ny*any+nz*anz < 0
+}
+
+// sceneFaceOpposesNormals is the internal-coordinate twin of
+// faceOpposesNormals, used by the browser preview.
+func sceneFaceOpposesNormals(v []scene.Vertex, a, b, c int) bool {
+	if a < 0 || b < 0 || c < 0 || a >= len(v) || b >= len(v) || c >= len(v) {
+		return false
+	}
+	p, q, r := v[a].Position, v[b].Position, v[c].Position
+	ux, uy, uz := q.X-p.X, q.Y-p.Y, q.Z-p.Z
+	vx, vy, vz := r.X-p.X, r.Y-p.Y, r.Z-p.Z
+	nx, ny, nz := uy*vz-uz*vy, uz*vx-ux*vz, ux*vy-uy*vx
+	anx := v[a].Normal.X + v[b].Normal.X + v[c].Normal.X
+	any := v[a].Normal.Y + v[b].Normal.Y + v[c].Normal.Y
+	anz := v[a].Normal.Z + v[b].Normal.Z + v[c].Normal.Z
 	if math.Abs(anx)+math.Abs(any)+math.Abs(anz) < 1e-9 {
 		return false
 	}
