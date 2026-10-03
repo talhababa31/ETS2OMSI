@@ -2,6 +2,11 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr-TR/1.1.0/) esas alınarak hazırlanmıştır.
 
+## [Yayınlanmamış]
+
+### Değişti
+- Yeni marka kimliği: neon yeşil çizgi ikon (disket · dişli · direksiyon) ve "ETS 2OMSI" yazı logosu; README banner'ı, GitHub paylaşım görseli (`assets/brand/social.png`), uygulama ve exe simgesi.
+
 ## [2.5.1] — 2026-10-03
 
 ### Düzeltildi

@@ -17,3 +17,7 @@ ETS2OMSI does not distribute ETS2, DLC, mod vehicle assets or OMSI stock resourc
 ## go-webview2
 
 The desktop window uses [go-webview2](https://github.com/jchv/go-webview2) (MIT) and the Microsoft Edge WebView2 runtime that ships with Windows 10/11.
+
+## Anton font
+
+The logo and banner use the Anton typeface by Vernon Adams, licensed under the SIL Open Font License 1.1 (`assets/brand/fonts/Anton-OFL.txt`).

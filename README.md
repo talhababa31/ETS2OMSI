@@ -1,15 +1,15 @@
 <div align="center">
 
-<img src="assets/brand/banner.png" alt="ETS2OMSI — Euro Truck Simulator 2 trafik araçları → OMSI 2" width="100%">
+<img src="assets/brand/banner.png" alt="ETS2OMSI" width="100%">
 
 **Euro Truck Simulator 2 trafik araçlarını OMSI 2 AI araçlarına dönüştürür.**
 
-![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-2.3.0-0a84ff)
-![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-555)
-![OMSI](https://img.shields.io/badge/hedef-OMSI%202-2ea44f)
-![Go](https://img.shields.io/badge/Go-1.23%2B-00ADD8?logo=go&logoColor=white)
+[![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-2.5.1-8CF03C?style=for-the-badge&labelColor=202328)](CHANGELOG.md)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-8CF03C?style=for-the-badge&labelColor=202328)](#indirme)
+[![Hedef](https://img.shields.io/badge/hedef-OMSI%202-8CF03C?style=for-the-badge&labelColor=202328)](#nasıl-çalışır)
+[![Go](https://img.shields.io/badge/Go-1.23%2B-8CF03C?style=for-the-badge&logo=go&logoColor=8CF03C&labelColor=202328)](BUILD.md)
 
-[İndir](#indirme) · [Kullanım](#kullanım) · [Nasıl çalışır](#nasıl-çalışır) · [Sorun giderme](#sorun-giderme) · [Geliştirme](#geliştirme) · [Sürüm notları](CHANGELOG.md)
+[**⬇ İndir**](#indirme) &nbsp;·&nbsp; [Kullanım](#kullanım) &nbsp;·&nbsp; [Nasıl çalışır](#nasıl-çalışır) &nbsp;·&nbsp; [Sorun giderme](#sorun-giderme) &nbsp;·&nbsp; [Geliştirme](#geliştirme) &nbsp;·&nbsp; [Sürüm notları](CHANGELOG.md)
 
 </div>
 
@@ -131,6 +131,6 @@ Derleme ayrıntıları: [BUILD.md](BUILD.md)
 
 - [ConverterPIX](https://github.com/mwl4/ConverterPIX) (LGPL-3.0) — ETS2 ikili modellerini çözmek için ayrı bir araç olarak kullanılır.
 - Kütüphaneler: [go-webview2](https://github.com/jchv/go-webview2).
-- Logo ve marka dosyaları: [`assets/brand`](assets/brand) (SVG, PNG, ICO).
+- Logo ve marka dosyaları: [`assets/brand`](assets/brand) (SVG, PNG, ICO, paylaşım görseli). Yazı tipi: [Anton](https://fonts.google.com/specimen/Anton) (SIL OFL 1.1).
 
 ETS2OMSI; ETS2, DLC, mod araç dosyaları veya OMSI içeriği dağıtmaz. Ayrıntı: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
