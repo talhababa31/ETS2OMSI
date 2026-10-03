@@ -17,7 +17,7 @@ function createRenderer(canvas, d) {
     precision mediump float;
     varying vec3 wp; varying vec3 wn; varying vec2 vuv;
     uniform sampler2D tex; uniform float hasTex; uniform vec3 baseColor;
-    uniform float alphaMode; uniform float gloss; uniform float metal; uniform float emissive;
+    uniform float alphaMode; uniform float gloss; uniform float metal; uniform float emissive; uniform float hl;
     uniform vec3 eye; uniform vec3 sunDir;
     vec3 sky(vec3 r){
       float t=clamp(r.z*0.5+0.5,0.0,1.0);
@@ -46,6 +46,7 @@ function createRenderer(canvas, d) {
       // contact darkening near the ground
       col *= mix(0.55,1.0,clamp(wp.z*2.2+0.1,0.0,1.0));
       col = col/(col+vec3(0.85))*1.55;          // soft tone map
+      col = mix(col, vec3(1.0,0.35,0.0), hl*0.6);  // selected material
       gl_FragColor = vec4(pow(col,vec3(1.0/2.2)), a);
     }`;
   const groundVS = `attribute vec2 g; uniform mat4 vp; varying vec2 gp; void main(){ gp=g; gl_Position=vp*vec4(g,0.0,1.0); }`;
@@ -123,6 +124,7 @@ function createRenderer(canvas, d) {
     const m = mats[i] || {};
     const cls = m.class || 'body';
     return {
+      mi: i,
       count: g.pos.length / 3, p: buf(g.pos), n: buf(g.nor), uv: buf(g.uv),
       tex: loadTexture(m.texture), color: m.color || [.6, .6, .65],
       alpha: !!m.alpha || cls === 'glass', cls, ...(surface[cls] || surface.body),
@@ -145,7 +147,7 @@ function createRenderer(canvas, d) {
   const H = d.height || 1.4, target0 = [0, 0, H * 0.45];
   const dist0 = Math.max(4.5, Math.max(d.length || 4, d.width || 1.8) * 1.25);
   let yaw = 0.75, pitch = 0.22, dist = dist0, target = target0.slice(), auto = true;
-  let drag = 0, lx = 0, ly = 0, raf = 0;
+  let drag = 0, lx = 0, ly = 0, raf = 0, highlight = -1;
   canvas.oncontextmenu = e => e.preventDefault();
   canvas.onmousedown = e => { drag = e.button === 2 || e.shiftKey ? 2 : 1; lx = e.clientX; ly = e.clientY; auto = false; };
   const up = () => { drag = 0; };
@@ -201,6 +203,7 @@ function createRenderer(canvas, d) {
         gl.uniform1f(u(carP, 'alphaMode'), dr.alpha ? 1 : 0);
         gl.uniform1f(u(carP, 'gloss'), dr.gloss); gl.uniform1f(u(carP, 'metal'), dr.metal);
         gl.uniform1f(u(carP, 'emissive'), dr.cls === 'light' ? 0.25 : 0);
+        gl.uniform1f(u(carP, 'hl'), dr.mi === highlight ? 1 : 0);
         gl.drawArrays(gl.TRIANGLES, 0, dr.count);
       }
     }
@@ -209,6 +212,7 @@ function createRenderer(canvas, d) {
   }
   draw();
   return {
+    setHighlight(mi) { highlight = mi; },
     destroy() {
       cancelAnimationFrame(raf);
       window.removeEventListener('mouseup', up);

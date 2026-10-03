@@ -1,4 +1,4 @@
-# ETS2OMSI V2.2.4 — Nasıl Kullanılır
+# ETS2OMSI V2.2.5 — Nasıl Kullanılır
 
 ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 
@@ -35,6 +35,8 @@ ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 3. OMSI'yi aç, trafikte arabaları kontrol et.
 
 ## Sorun olursa
+
+- **Texture yanlış/eksikse:** 3D önizlemenin altındaki **Materyaller** listesine bak. Her parçada ✔ paketten / ✖ pakette yok / ⚠ yedek ve sebebi yazar; satıra tıklayınca parça 3D'de turuncu yanar. **Teşhis dosyasını kaydet** ile oluşan `.json` dosyasını geliştiriciye gönder.
 
 - Log dosyası: `%LocalAppData%\ETS2OMSI\ETS2OMSI.log` (Windows tuşu + R → bu yolu yapıştır).
 - Her aracın klasöründe `conversion_report.json` ve rapor metni var; hata/uyarılar orada yazar.

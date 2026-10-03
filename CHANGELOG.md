@@ -1,5 +1,12 @@
 # Changelog
 
+## V2.2.5 — Texture mantığı baştan yazıldı
+
+- **Kesin (tahminsiz) eşleşme:** Materyalin istediği `.tobj` paketten okunur, ETS2'nin ikili formatına göre çözülür (hangi resim, hangi kenar davranışı), resim de paketten okunur. Sadece tam yol ve aynı klasörde boşluk/alt çizgi farkı kabul edilir. Paketin başka bir yerinden "adı benzeyen" texture alınması tamamen kaldırıldı (başka araçların texture'ları gelebiliyordu).
+- **Ayna/clamp kenar davranışı:** ETS2'nin aynalı texture'ları OMSI'de aynı görünecek şekilde dönüştürülüyor (texture aynasıyla birleştirilir, UV ayarlanır); clamp UV'leri sınırlanıyor.
+- **OMSI uyumlu biçim:** DX10 başlıklı DDS, TGA, PNG vb. OMSI'nin kesin okuduğu sıkıştırmasız DDS'e (mipmap'li) çevriliyor; zaten uyumlu DXT dosyaları olduğu gibi kopyalanıyor.
+- **Materyal teşhis listesi:** 3D önizlemenin altında her parça: ✔ paketten / ✖ pakette yok / ⚠ yedek, sebebi ve dosya yolu. Satıra tıklayınca parça 3D'de turuncu yanar. "Teşhis dosyasını kaydet" ile tek dosya halinde dışa aktarılır. Dönüşüm raporunda da (`conversion_report.json` → `materials`) aynı bilgi var.
+
 ## V2.2.4 — Texture'lar araca oturuyor (UV düzeltmesi)
 
 - **Asıl texture hatası:** UV koordinatlarının V ekseni yanlışlıkla ters çevriliyordu (`1 - v`). ConverterPIX ETS2'nin DirectX düzenindeki UV'lerini olduğu gibi yazar, OMSI de aynı düzeni kullanır (ETS2'nin resmi Blender eklentisi çevirmeyi yalnızca Blender'a alırken yapar). Ters çevirme texture atlasının yanlış bölgesini okutuyordu: farlarda stop lambası, gövdede başka parçaların texture'ı. Hem 3D önizleme hem OMSI çıktısı düzeldi.

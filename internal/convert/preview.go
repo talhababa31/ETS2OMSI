@@ -20,6 +20,11 @@ type PreviewMaterial struct {
 	Color   [3]float64 `json:"color"`
 	Texture string     `json:"texture,omitempty"` // file name inside the preview texture set
 	Alpha   bool       `json:"alpha,omitempty"`
+	Ref     string     `json:"ref,omitempty"`
+	Image   string     `json:"image,omitempty"`
+	Status  string     `json:"status,omitempty"`
+	Reason  string     `json:"reason,omitempty"`
+	Model   string     `json:"model,omitempty"`
 }
 type PreviewData struct {
 	VehicleID         string            `json:"vehicle_id"`
@@ -88,6 +93,9 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 	_ = os.MkdirAll(texDir, 0755)
 	bodyHints := loadPITMaterials(&sc, px.PIT, vehicleLook(v, main.Look))
 	texRoots := []string{px.WorkDir}
+	resolver := newTextureResolver(mounts, texDir)
+	defer resolver.Close()
+	diags := []MaterialDiag{}
 	b := sc.Bounds()
 	sc.Translate(-(b.Min.X+b.Max.X)/2, -(b.Min.Y+b.Max.Y)/2, 0)
 	if mode == "final" && len(v.WheelAttachments) > 0 {
@@ -104,10 +112,10 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 			mergeHints(hints, wv[i].Hints)
 			texRoots = append(texRoots, wv[i].Pix.WorkDir)
 		}
-		index := previewTextures(ctx, exe, mounts, hints, texRoots, work, texDir)
-		previewMaterials(&sc, bodyHints, index, texDir)
+		previewPIXFallback(ctx, exe, mounts, hints, texRoots, work, resolver)
+		diags = append(diags, previewMaterials(resolver, &sc, bodyHints, "body")...)
 		for i := range wv {
-			previewMaterials(&wv[i].Scene, wv[i].Hints, index, texDir)
+			diags = append(diags, previewMaterials(resolver, &wv[i].Scene, wv[i].Hints, "wheel_"+strings.ToLower(wv[i].Slot))...)
 			wv[i].Scene.Translate(0, 0, -g)
 			sc.AppendTranslated(wv[i].Scene, 0, 0, 0)
 		}
@@ -116,10 +124,19 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 		// Source preview remains simple but upright in internal coordinates.
 		bb := sc.Bounds()
 		sc.Translate(0, 0, -bb.Min.Z)
-		index := previewTextures(ctx, exe, mounts, bodyHints, texRoots, work, texDir)
-		previewMaterials(&sc, bodyHints, index, texDir)
+		previewPIXFallback(ctx, exe, mounts, bodyHints, texRoots, work, resolver)
+		diags = append(diags, previewMaterials(resolver, &sc, bodyHints, "body")...)
 	}
 	p := previewFromScene(v, sc)
+	if len(diags) == len(p.Materials) {
+		for i, d := range diags {
+			pm := &p.Materials[i]
+			pm.Ref, pm.Image, pm.Status, pm.Reason, pm.Model = d.Ref, d.Image, d.Status, d.Reason, d.Model
+			if pm.Status == "missing" || pm.Status == "fallback" {
+				pm.Reason += " → yedek: " + pm.Texture
+			}
+		}
+	}
 	p.TextureSet = set
 	p.Mode = mode
 	p.TrianglesOriginal = original
@@ -216,23 +233,27 @@ func PreviewTextureDir(set string) string {
 	return filepath.Join(base, "ETS2OMSI", "preview", filepath.Base(set))
 }
 
-// previewTextures resolves texture hints exactly like the conversion pipeline
-// and copies the result into texDir; it returns the lookup index.
-func previewTextures(ctx context.Context, exe string, mounts []string, hints map[string][]string, roots []string, work, texDir string) map[string]string {
+// previewPIXFallback feeds ConverterPIX exports to the resolver when the
+// package cannot be read directly (same rule as the conversion).
+func previewPIXFallback(ctx context.Context, exe string, mounts []string, hints map[string][]string, roots []string, work string, r *textureResolver) {
+	if r.Native() {
+		return
+	}
 	resolveDir := filepath.Join(work, "exact_textures")
 	_ = os.MkdirAll(resolveDir, 0755)
 	_, _ = resolveTextureHints(ctx, exe, mounts, hints, resolveDir)
-	index := map[string]string{}
-	collectTextures(append(append([]string{}, roots...), resolveDir), texDir, index)
-	return index
+	tr := TextureReport{}
+	r.usePIXExports(append(append([]string{}, roots...), resolveDir), &tr)
 }
 
-func previewMaterials(sc *scene.Scene, hints map[string][]string, index map[string]string, texDir string) {
+func previewMaterials(r *textureResolver, sc *scene.Scene, hints map[string][]string, model string) []MaterialDiag {
+	index, diags := r.prepareScene(sc, hints, model)
 	tr := TextureReport{}
 	warnings := []string{}
-	if un := applyMaterials(sc, hints, index, texDir, &tr, &warnings); len(un) > 0 {
-		applySafeMaterialFallbacks(sc, un, texDir, &tr, &warnings)
+	if un := applyMaterials(sc, hints, index, r.texDir, &tr, &warnings); len(un) > 0 {
+		applySafeMaterialFallbacks(sc, un, r.texDir, &tr, &warnings)
 	}
+	return diags
 }
 
 // PreviewTexturePNG returns one preview texture as PNG (DDS is decoded) for
