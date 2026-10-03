@@ -33,6 +33,8 @@ ETS2OMSI, tek bir ETS2 trafik paketindeki (`.scs`) otomobilleri tarar ve her bir
 - **Eksik texture üretimi** — ETS2'nin kendi dosyalarında kalan cam, far, stop, sinyal, krom, jant ve lastik texture'ları otomatik üretilir.
 - **ETS2 boya renkleri** — materyal `diffuse` rengi ve seçili renk varyasyonu (Look) texture'a işlenir.
 - **Materyal teşhis listesi** — her parçanın texture'ının nereden geldiği ya da neden bulunamadığı gösterilir ve dışa aktarılabilir.
+- **Araç sınıfı** — sedan, hatchback, kombi, coupe, SUV, pickup, van, minibüs otomatik bulunur ya da elle seçilir; fizik ve AI hızı sınıfa göre ayarlanır.
+- **Eksik tekerlek üretimi** — tekerlek modeli olmayan araçlara (ör. panelvanlar) jant ve lastik üretilir.
 - **OMSI uyumlu çıktı** — doğru eksenler, tekerlek temas noktasına göre zemin, ayrı ve animasyonlu tekerlekler, kütleden hesaplanan süspansiyon.
 
 ## İndirme
@@ -46,7 +48,7 @@ ETS2OMSI, tek bir ETS2 trafik paketindeki (`.scs`) otomobilleri tarar ve her bir
 
 1. `ETS2OMSI.exe` dosyasını çalıştırın. Program kendi penceresinde açılır.
 2. **SCS Dosyası Seç** ile trafik paketini seçin ve **Arabaları Bul**'a tıklayın.
-3. Bir araç seçip **3D önizleme**yi açın; alttaki **Materyaller** listesinden texture durumunu kontrol edin.
+3. Bir araç seçip **3D önizleme**yi açın; alttaki **Materyaller** listesinden texture durumunu kontrol edin. Gerekirse **Araç sınıfı**nı elle seçin.
 4. Araçları işaretleyip **OMSI'ye Dönüştür**'e tıklayın.
 5. Oluşan araç klasörlerini `OMSI 2\Vehicles\` içine kopyalayın ve her klasördeki `ailists_snippet.txt` satırını haritanın `ailists.cfg` dosyasına ekleyin.
 

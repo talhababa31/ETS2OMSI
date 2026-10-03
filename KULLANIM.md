@@ -1,4 +1,4 @@
-# ETS2OMSI V2.3.0 — Nasıl Kullanılır
+# ETS2OMSI V2.4.0 — Nasıl Kullanılır
 
 ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 
@@ -25,7 +25,8 @@ ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 2. **Arabaları Bul**'a bas, liste gelsin.
 3. **Çıktı klasörü** seç (boş bırakırsan exe'nin yanında `output` klasörüne yazar).
 4. İstediğin arabaları işaretle → dönüştür.
-5. Dönüştürmeden önce **3D önizleme**ye bak: gerçek texture'larla, OMSI'ye gidecek hâliyle gösterir.
+5. Araç ayrıntılarında **Araç sınıfı** "Otomatik" kalabilir; yanlış bulunursa listeden (Sedan, Hatchback, Kombi, SUV, Pickup, Van, Minibüs…) elle seç.
+6. Dönüştürmeden önce **3D önizleme**ye bak: gerçek texture'larla, OMSI'ye gidecek hâliyle gösterir.
    Sol tık: döndür · sağ tık / Shift: kaydır · tekerlek: yakınlaş · çift tık: başa dön.
 
 ## 4. OMSI 2'ye koy

@@ -2,6 +2,16 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr-TR/1.1.0/) esas alınarak hazırlanmıştır.
 
+## [2.4.0] — 2026-10-03
+
+### Düzeltildi
+- **Gövdenin içinin görünmesi / eksik kaput-çamurluk:** ETS2'nin gövde efekti `eut2.dif.spec.add.env`, adındaki `.add` yüzünden saydam materyal sanılıyordu; texture alfa kanalı (aslında parlaklık maskesi) saydamlık olarak kullanılıyor, gövde yer yer görünmez oluyordu. Önizlemede ve OMSI'de (`[matl_alpha]`) düzeltildi; saydamlık yalnızca gerçek alfa/blend/cam efektlerinde.
+- **Tekerleklerin zemine gömülmesi:** Tekerlek yarıçapı, `bb` locator'ı olmayan modellerde lastik genişliğinin yarısı (~0,1 m) olarak alınıyordu. Yarıçap artık tekerlek geometrisinden, zemin de yerleştirilmiş lastiklerin en alt noktasından hesaplanıyor.
+
+### Eklendi
+- **Sentetik tekerlek:** Tekerlek modeli pakette olmayan (çoğu panelvan) veya hiç tanımlamayan araçlarda, ETS2 tekerlek konumlarına beş kollu jant ve lastik üretilir.
+- **Araç sınıfı:** Sedan, hatchback, kombi, coupe, SUV, pickup, van/panelvan, minibüs. Önce araç adından, bulunamazsa gövde biçiminden (yükseklik, arka profil, kasa) otomatik bulunur; araç ayrıntılarında elle seçilebilir. Sınıf; kütle, süspansiyon, aks yük dağılımı, AI azami hızı ve OMSI araç adını belirler.
+
 ## [2.3.0] — 2026-10-03
 
 ### Eklendi

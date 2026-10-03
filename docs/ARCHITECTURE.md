@@ -38,3 +38,13 @@ Her materyal için `conversion_report.json → materials` altında durum (`ok` /
 ## Süspansiyon
 
 Aks başına yay, sönüm ve azami kuvvet kütleden hesaplanır (yaklaşık 2,3 Hz, sönüm oranı 0,45, ön/arka yük dağılımı 56/44). 1,5 tonluk bir araçta statik çökme yaklaşık 4,5 cm'dir.
+
+## Tekerlekler ve zemin
+
+- Tekerlek konumu ETS2 `wheel_f*` / `wheel_r*` locator'larından, yoksa gövde ölçüsünden alınır.
+- Tekerlek modeli paketteyse kullanılır; değilse sentetik lastik + jant üretilir (yarıçap locator yüksekliğinden).
+- Yarıçap tekerlek geometrisinden; zemin yerleştirilmiş lastiklerin en alt noktalarının medyanından hesaplanır.
+
+## Araç sınıfı
+
+Önce ad (model adları ve anahtar kelimeler), sonra gövde biçimi: yükseklik (van/minibüs), alçak arka kasa (pickup), yükseklik+genişlik (SUV), arka %10'un tavana göre yüksekliği (hatchback/kombi), alçak gövde (coupe), aksi halde sedan. Elle seçim her zaman önceliklidir. Sınıf; kütle aralığı, süspansiyon frekansı, ön/arka yük dağılımı ve AI azami hızını belirler.

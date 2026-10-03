@@ -24,6 +24,7 @@ import (
 	"ets2omsi/internal/archive"
 	conv "ets2omsi/internal/convert"
 	"ets2omsi/internal/extract"
+	"ets2omsi/internal/omsi"
 	"ets2omsi/internal/pixbridge"
 )
 
@@ -38,7 +39,7 @@ type appState struct {
 
 var current appState
 
-const appVersion = "V2.3.0"
+const appVersion = "V2.4.0"
 
 var (
 	logPath     string
@@ -102,6 +103,7 @@ func main() {
 	mux.HandleFunc("/api/extract", extractAPI)
 	mux.HandleFunc("/api/preview", previewAPI)
 	mux.HandleFunc("/api/texture", textureAPI)
+	mux.HandleFunc("/api/classes", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, omsi.Classes()) })
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Println(err)
@@ -259,8 +261,9 @@ func ensureConverterPIX(ctx context.Context) (string, error) {
 
 func convertAPI(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		IDs        []string `json:"ids"`
-		OutputRoot string   `json:"output_root"`
+		IDs        []string          `json:"ids"`
+		OutputRoot string            `json:"output_root"`
+		Classes    map[string]string `json:"classes"` // vehicle id -> class (manual override)
 	}
 	if e := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2<<20)).Decode(&req); e != nil {
 		http.Error(w, e.Error(), 400)
@@ -301,7 +304,7 @@ func convertAPI(w http.ResponseWriter, r *http.Request) {
 			out = append(out, item{ID: id, Error: "araç mevcut taramada bulunamadı"})
 			continue
 		}
-		rp, e := conv.Vehicle(ctx, conv.Options{Vehicle: v, MountPaths: []string{p.Options.PackagePath}, ConverterPIX: pix, OutputRoot: req.OutputRoot, StrictFidelity: false})
+		rp, e := conv.Vehicle(ctx, conv.Options{Vehicle: v, MountPaths: []string{p.Options.PackagePath}, ConverterPIX: pix, OutputRoot: req.OutputRoot, StrictFidelity: false, Class: req.Classes[id]})
 		it := item{ID: id, Name: v.DisplayName, Report: rp}
 		if e != nil {
 			it.Error = e.Error()

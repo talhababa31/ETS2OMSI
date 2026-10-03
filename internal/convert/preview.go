@@ -34,6 +34,8 @@ type PreviewData struct {
 	Normals           []float32         `json:"normals"`
 	UVs               []float32         `json:"uvs"`
 	TextureSet        string            `json:"texture_set,omitempty"`
+	Class             string            `json:"class,omitempty"`
+	ClassBasis        string            `json:"class_basis,omitempty"`
 	Indices           []uint32          `json:"indices"`
 	TriangleMaterials []uint16          `json:"triangle_materials"`
 	Materials         []PreviewMaterial `json:"materials"`
@@ -92,16 +94,20 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 	_ = os.RemoveAll(texDir)
 	_ = os.MkdirAll(texDir, 0755)
 	bodyHints := loadPITMaterials(&sc, px.PIT, vehicleLook(v, main.Look))
+	class, classBasis := detectVehicleClass(v.DisplayName+" "+v.ID, sc)
 	texRoots := []string{px.WorkDir}
 	resolver := newTextureResolver(mounts, texDir)
 	defer resolver.Close()
 	diags := []MaterialDiag{}
 	b := sc.Bounds()
 	sc.Translate(-(b.Min.X+b.Max.X)/2, -(b.Min.Y+b.Max.Y)/2, 0)
-	if mode == "final" && len(v.WheelAttachments) > 0 {
+	if mode == "final" {
 		wv, _, radii, _, _ := resolveWheelVisuals(ctx, exe, mounts, v, sc, work, pixbridge.DefaultCacheRoot())
 		wheels, _ := detectWheels(sc, radii)
 		g := groundPlane(sc, wheels)
+		if gc, ok := wheelContactGround(wv); ok {
+			g = gc
+		}
 		sc.Translate(0, 0, -g)
 		hints := map[string][]string{}
 		mergeHints(hints, bodyHints)
@@ -138,6 +144,7 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 		}
 	}
 	p.TextureSet = set
+	p.Class, p.ClassBasis = class, classBasis
 	p.Mode = mode
 	p.TrianglesOriginal = original
 	p.WheelVisuals = visuals

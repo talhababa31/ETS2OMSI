@@ -38,6 +38,7 @@ type Options struct {
 	KeepWork       bool
 	StrictFidelity bool   // fail instead of committing when diagnostic/fallback textures are required
 	CacheRoot      string // optional persistent ConverterPIX cache root
+	Class          string // vehicle class chosen by the user; "" = automatic
 }
 type ModelReport struct {
 	Source     string `json:"source"`
@@ -69,6 +70,8 @@ type AutoReport struct {
 	Length         float64 `json:"length"`
 	Height         float64 `json:"height"`
 	PhysicsProfile string  `json:"physics_profile,omitempty"`
+	VehicleClass   string  `json:"vehicle_class,omitempty"`
+	ClassBasis     string  `json:"class_basis,omitempty"`
 	EstimatedMass  float64 `json:"estimated_mass_t,omitempty"`
 }
 type ValidationReport struct {
@@ -129,7 +132,7 @@ type wheelVisual struct {
 
 func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 	start := time.Now()
-	rep = Report{Version: "V2.3.0", VehicleID: opt.Vehicle.ID, Name: opt.Vehicle.DisplayName, Started: start.Format(time.RFC3339), Status: "failed", Stage: "prepare"}
+	rep = Report{Version: "V2.4.0", VehicleID: opt.Vehicle.ID, Name: opt.Vehicle.DisplayName, Started: start.Format(time.RFC3339), Status: "failed", Stage: "prepare"}
 	defer func() { rep.DurationMS = time.Since(start).Milliseconds() }()
 	if len(opt.Vehicle.Models) == 0 {
 		rep.Stage = "resolve model"
@@ -268,6 +271,9 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 		wheelBasis = "resolved ETS2 wheel model positions/radii"
 	}
 	ground := groundPlane(converted[0].sc, wheelsBefore)
+	if g, ok := wheelContactGround(wheelVisuals); ok {
+		ground = g
+	}
 	for i := range converted {
 		converted[i].sc.Translate(0, 0, -ground)
 	}
@@ -426,7 +432,12 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 	rep.Auto.Lights = 0
 
 	rep.Stage = "write OMSI vehicle"
-	physics := omsi.EstimateAIPhysics(opt.Vehicle.DisplayName, mainBounds.Length(), mainBounds.Width(), mainBounds.Height())
+	class, classBasis := detectVehicleClass(opt.Vehicle.DisplayName+" "+opt.Vehicle.ID, converted[0].sc)
+	if c, ok := omsi.LookupClass(opt.Class); ok {
+		class, classBasis = c.ID, "elle seçildi"
+	}
+	rep.Auto.VehicleClass, rep.Auto.ClassBasis = class, classBasis
+	physics := omsi.EstimateAIPhysicsClass(opt.Vehicle.DisplayName, class, mainBounds.Length(), mainBounds.Width(), mainBounds.Height())
 	rep.Auto.PhysicsProfile = physics.Profile
 	rep.Auto.EstimatedMass = round3(physics.Mass)
 	spec := omsi.VehicleSpec{
@@ -580,9 +591,6 @@ func resolveWheelVisuals(ctx context.Context, exe string, mounts []string, v sca
 	radii := map[string]float64{}
 	reports := []ModelReport{}
 	warnings := []string{}
-	if len(v.WheelAttachments) == 0 {
-		return visuals, results, radii, reports, warnings
-	}
 	placements := wheelPlacements(main)
 	if len(placements) < 4 {
 		placements = estimatedWheelPlacements(main.Bounds())
@@ -649,8 +657,38 @@ func resolveWheelVisuals(ctx context.Context, exe string, mounts []string, v sca
 		hints := loadPITMaterials(&placed, cw.pix.PIT, att.Look)
 		visuals = append(visuals, wheelVisual{Slot: pl.Slot, Pos: pl.Pos, Radius: r, Scene: placed, Pix: cw.pix, Hints: hints})
 	}
-	if len(v.WheelAttachments) > 0 && len(visuals) == 0 {
-		warnings = append(warnings, "wheel accessories were detected but no wheel model could be resolved; body conversion is kept intact")
+	// Slots without a usable ETS2 wheel model (no wheel accessory, or the
+	// model lives in base.scs — common for vans) get a synthetic tyre + rim.
+	have := map[string]bool{}
+	for _, vis := range visuals {
+		have[vis.Slot] = true
+	}
+	mb := main.Bounds()
+	groundZ := 0.0 // ETS2 vehicle models have their origin on the ground
+	if mb.Min.Z < -.05 || mb.Min.Z > .45 {
+		groundZ = mb.Min.Z - .15
+	}
+	synth := 0
+	for _, pl := range placements {
+		if pl.Slot == "" || have[pl.Slot] {
+			continue
+		}
+		have[pl.Slot] = true
+		r := syntheticWheelRadius(pl.Pos.Z, groundZ, mb.Height())
+		width := .21
+		if mb.Height() > 1.85 {
+			width = .23
+		}
+		pos := pl.Pos
+		pos.Z = groundZ + r
+		wsc := buildSyntheticWheel(r, width)
+		wsc.Translate(pos.X, pos.Y, pos.Z)
+		radii[pl.Slot] = r
+		visuals = append(visuals, wheelVisual{Slot: pl.Slot, Pos: pos, Radius: r, Scene: wsc, Hints: map[string][]string{}})
+		synth++
+	}
+	if synth > 0 {
+		warnings = append(warnings, fmt.Sprintf("%d wheel(s) had no usable ETS2 wheel model in the package; generated tyre + rim used", synth))
 	}
 	return visuals, results, radii, reports, uniqueStringsLocal(warnings)
 }
@@ -763,16 +801,36 @@ func wheelVariantForSide(vars []string, x float64, configured string) string {
 	return ""
 }
 
+// wheelRadius is half the wheel model's extent in the vertical/longitudinal
+// plane (the wheel axis is X). The former fallback min(width,height)/2 took
+// half the tyre WIDTH (~0.1 m) when no "bb" locator existed, which put the
+// ground ~20 cm too high and sank the tyres.
 func wheelRadius(sc scene.Scene) float64 {
-	for _, l := range sc.Locators {
-		if strings.EqualFold(strings.TrimSpace(l.Name), "bb") {
-			// SCS uses the bb locator to describe wheel size. Its distance from the
-			// model origin is a robust radius estimate across legacy wheel models.
-			return l.Position.Length()
+	b := sc.Bounds()
+	r := math.Max(b.Height(), b.Length()) / 2
+	if r < .05 {
+		r = .05
+	}
+	return r
+}
+
+// wheelContactGround returns the median lowest point of the placed wheel
+// meshes: the exact tyre contact height. ok is false with fewer than 2 wheels.
+func wheelContactGround(visuals []wheelVisual) (float64, bool) {
+	z := []float64{}
+	for _, v := range visuals {
+		if len(v.Scene.Vertices) > 0 {
+			z = append(z, v.Scene.Bounds().Min.Z)
 		}
 	}
-	b := sc.Bounds()
-	return math.Max(.05, math.Min(b.Width(), b.Height())*.5)
+	if len(z) < 2 {
+		return 0, false
+	}
+	sort.Float64s(z)
+	if len(z)%2 == 1 {
+		return z[len(z)/2], true
+	}
+	return (z[len(z)/2-1] + z[len(z)/2]) / 2, true
 }
 
 func uniqueStringsLocal(in []string) []string {
@@ -1096,7 +1154,7 @@ func applyMaterials(sc *scene.Scene, hints map[string][]string, index map[string
 	for i := range sc.Materials {
 		m := &sc.Materials[i]
 		m.Class = materialClass(*m)
-		m.Alpha = m.Class == "glass" || strings.Contains(strings.ToLower(m.Effect), ".a") || strings.Contains(strings.ToLower(m.Effect), "blend")
+		m.Alpha = m.Class == "glass" || effectUsesAlpha(m.Effect)
 		candidates := append([]string{}, hints[strings.ToLower(strings.TrimSpace(m.Alias))]...)
 		// Some legacy PIMs put a material/texture path directly in Alias. This is
 		// still exact resolution, not fuzzy matching.
@@ -1630,7 +1688,7 @@ func listRelative(root string) []string {
 }
 
 func textReport(r Report) string {
-	return fmt.Sprintf("ETS2OMSI V2.3.0 Conversion Report\r\nVehicle: %s\r\nStatus: %s\r\nOutput: %s\r\nModels: %d\r\nTextures copied: %d\r\nExact texture bindings: %d\r\nOn-demand package textures: %d\r\nUnresolved visible textures: %d\r\nDimensions LxWxH: %.3f x %.3f x %.3f m\r\nO3D XYZ dims: %.3f x %.3f x %.3f m\r\nOrientation: %t\r\nGround: %t\r\nWheel meshes: %d\r\nWheel basis: %s\r\nWarnings: %d\r\nErrors: %d\r\n", r.Name, r.Status, r.Output, len(r.Models), r.Textures.Copied, r.Textures.ExactResolved, r.Textures.OnDemandResolved, len(r.Textures.Unresolved), r.Auto.Length, r.Auto.Width, r.Auto.Height, r.Validation.O3DDimensions[0], r.Validation.O3DDimensions[1], r.Validation.O3DDimensions[2], r.Validation.OrientationOK, r.Validation.GroundOK, r.Validation.WheelMeshes, r.Auto.WheelBasis, len(r.Warnings), len(r.Errors))
+	return fmt.Sprintf("ETS2OMSI V2.4.0 Conversion Report\r\nVehicle: %s\r\nStatus: %s\r\nOutput: %s\r\nModels: %d\r\nTextures copied: %d\r\nExact texture bindings: %d\r\nOn-demand package textures: %d\r\nUnresolved visible textures: %d\r\nDimensions LxWxH: %.3f x %.3f x %.3f m\r\nO3D XYZ dims: %.3f x %.3f x %.3f m\r\nOrientation: %t\r\nGround: %t\r\nWheel meshes: %d\r\nWheel basis: %s\r\nWarnings: %d\r\nErrors: %d\r\n", r.Name, r.Status, r.Output, len(r.Models), r.Textures.Copied, r.Textures.ExactResolved, r.Textures.OnDemandResolved, len(r.Textures.Unresolved), r.Auto.Length, r.Auto.Width, r.Auto.Height, r.Validation.O3DDimensions[0], r.Validation.O3DDimensions[1], r.Validation.O3DDimensions[2], r.Validation.OrientationOK, r.Validation.GroundOK, r.Validation.WheelMeshes, r.Auto.WheelBasis, len(r.Warnings), len(r.Errors))
 }
 
 func fileExists(p string) bool {
@@ -1677,4 +1735,20 @@ func vehicleLook(v scanner.Vehicle, assetLook string) string {
 		}
 	}
 	return ""
+}
+
+// effectUsesAlpha reports whether an ETS2 effect really uses the texture
+// alpha as transparency. Effect names are dot-separated flags
+// ("eut2.dif.spec.add.env"); only the "a" (alpha test) flag or a blend mode
+// means transparency. A substring test for ".a" matched ".add", the common
+// car-body shader, and made body panels see-through: ETS2 stores the
+// specular mask in the alpha channel of opaque textures.
+func effectUsesAlpha(effect string) bool {
+	for _, tok := range strings.Split(strings.ToLower(strings.TrimSpace(effect)), ".") {
+		switch {
+		case tok == "a", tok == "alpha", strings.HasPrefix(tok, "blend"), tok == "glass":
+			return true
+		}
+	}
+	return false
 }

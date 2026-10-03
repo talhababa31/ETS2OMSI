@@ -98,3 +98,19 @@ func TestSafeFallbackConvertsUnresolvedBodyAndGlass(t *testing.T) {
 		t.Fatalf("duplicate warnings=%#v", warnings)
 	}
 }
+
+func TestEffectUsesAlpha(t *testing.T) {
+	for eff, want := range map[string]bool{
+		"eut2.dif.spec.add.env":           false, // car body: alpha = spec mask
+		"eut2.dif.spec.add.env.nofresnel": false,
+		"eut2.dif.a":                      true,
+		"eut2.dif.spec.a.over":            true,
+		"eut2.dif.blend_over":             true,
+		"eut2.glass":                      true,
+		"eut2.dif":                        false,
+	} {
+		if got := effectUsesAlpha(eff); got != want {
+			t.Fatalf("%s: got %v want %v", eff, got, want)
+		}
+	}
+}
