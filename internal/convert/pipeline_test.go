@@ -47,10 +47,10 @@ func TestTexturelessGlassGetsSemanticOMSIGlass(t *testing.T) {
 	if len(unresolved) != 0 {
 		t.Fatalf("textureless glass must not be unresolved: %#v", unresolved)
 	}
-	if sc.Materials[0].Texture != "semantic_glass.png" || !sc.Materials[0].Alpha || sc.Materials[0].Class != "glass" {
+	if sc.Materials[0].Texture != "gen_glass.dds" || !sc.Materials[0].Alpha || sc.Materials[0].Class != "glass" {
 		t.Fatalf("material=%+v", sc.Materials[0])
 	}
-	if _, err := os.Stat(filepath.Join(d, "semantic_glass.png")); err != nil {
+	if _, err := os.Stat(filepath.Join(d, "gen_glass.dds")); err != nil {
 		t.Fatalf("semantic glass not generated: %v", err)
 	}
 }
@@ -79,10 +79,10 @@ func TestSafeFallbackConvertsUnresolvedBodyAndGlass(t *testing.T) {
 	if sc.Materials[0].Texture != "fallback_body.png" {
 		t.Fatalf("body fallback=%q", sc.Materials[0].Texture)
 	}
-	if sc.Materials[1].Texture != "fallback_glass.png" || !sc.Materials[1].Alpha {
+	if sc.Materials[1].Texture != "gen_glass.dds" || !sc.Materials[1].Alpha {
 		t.Fatalf("glass fallback=%+v", sc.Materials[1])
 	}
-	for _, name := range []string{"fallback_body.png", "fallback_glass.png"} {
+	for _, name := range []string{"fallback_body.png", "gen_glass.dds"} {
 		if _, err := os.Stat(filepath.Join(d, name)); err != nil {
 			t.Fatalf("%s missing: %v", name, err)
 		}

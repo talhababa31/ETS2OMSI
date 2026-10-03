@@ -1,4 +1,4 @@
-# ETS2OMSI V2.2.5 — Nasıl Kullanılır
+# ETS2OMSI V2.3.0 — Nasıl Kullanılır
 
 ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 
@@ -40,4 +40,4 @@ ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 
 - Log dosyası: `%LocalAppData%\ETS2OMSI\ETS2OMSI.log` (Windows tuşu + R → bu yolu yapıştır).
 - Her aracın klasöründe `conversion_report.json` ve rapor metni var; hata/uyarılar orada yazar.
-- Cam texture'ı ve bazı jantlar (golf_wheel, bmw_wheel...) ETS2'nin kendi base.scs dosyasında olduğu için yedek (fallback) texture ile gelir, bu normal.
+- Cam, bazı farlar ve jantlar (golf_wheel, bmw_wheel...) ETS2'nin kendi dosyasında olduğu için pakette yoktur; program bunlar için parça türüne uygun texture üretir.

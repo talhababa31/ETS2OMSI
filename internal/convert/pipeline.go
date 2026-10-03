@@ -129,7 +129,7 @@ type wheelVisual struct {
 
 func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 	start := time.Now()
-	rep = Report{Version: "V2.2.5", VehicleID: opt.Vehicle.ID, Name: opt.Vehicle.DisplayName, Started: start.Format(time.RFC3339), Status: "failed", Stage: "prepare"}
+	rep = Report{Version: "V2.3.0", VehicleID: opt.Vehicle.ID, Name: opt.Vehicle.DisplayName, Started: start.Format(time.RFC3339), Status: "failed", Stage: "prepare"}
 	defer func() { rep.DurationMS = time.Since(start).Milliseconds() }()
 	if len(opt.Vehicle.Models) == 0 {
 		rep.Stage = "resolve model"
@@ -1136,24 +1136,18 @@ func applyMaterials(sc *scene.Scene, hints map[string][]string, index map[string
 			// genuinely missing window texture is never hidden.
 			texturelessGlass := m.Class == "glass" && !explicitTextureRef
 			optionalHelper := m.Class == "light" || strings.Contains(sig, "shadow") || strings.Contains(sig, "occlusion") || strings.Contains(sig, "trucklight") || strings.Contains(sig, "reflection")
-			if texturelessGlass {
-				tex = "semantic_glass.png"
-				p := filepath.Join(texDir, tex)
-				if _, e := os.Stat(p); os.IsNotExist(e) {
-					_ = writeNeutral(p, "glass")
-					tr.GeneratedFallbacks++
-					tr.Files = append(tr.Files, tex)
+			if texturelessGlass || optionalHelper {
+				// Legacy textureless glass shaders and ETS2-only helpers
+				// (lamps, shadows, flares): generated OMSI replacement.
+				kind, _, alpha := generatedKind(sc, i, strings.Join(candidates, " "))
+				if texturelessGlass {
+					kind, alpha = genGlass, true
 				}
-				// Expected for legacy glass shaders: not a user-facing warning.
-			} else if optionalHelper {
-				tex = "optional_" + m.Class + ".png"
-				p := filepath.Join(texDir, tex)
-				if _, e := os.Stat(p); os.IsNotExist(e) {
-					_ = writeNeutral(p, m.Class)
-					tr.GeneratedFallbacks++
-					tr.Files = append(tr.Files, tex)
+				if kind == genPaint {
+					kind = genTrim
 				}
-				// Expected ETS2-only helper: neutral replacement is normal in SCS-only mode.
+				tex = writeGeneratedTexture(texDir, kind, tr)
+				m.Alpha = m.Alpha || alpha
 			} else {
 				label := strings.TrimSpace(m.Alias)
 				if label == "" {
@@ -1201,6 +1195,22 @@ func applySafeMaterialFallbacks(sc *scene.Scene, unresolved []string, texDir str
 		}
 		if class == "glass" {
 			m.Alpha = true
+		}
+		// Known part (glass, lamp, rim, tyre, chrome, interior ...): use a
+		// generated texture of that kind instead of a flat placeholder.
+		if kind, solid, alpha := generatedKind(sc, i, ""); kind != genPaint || solid != nil {
+			n := ""
+			if solid != nil {
+				n = writeSolidTexture(texDir, *solid, tr)
+			} else {
+				n = writeGeneratedTexture(texDir, kind, tr)
+			}
+			if n != "" {
+				m.Texture = n
+				m.Alpha = m.Alpha || alpha
+				m.HasTint = false
+				continue
+			}
 		}
 		name := "fallback_" + class + ".png"
 		if isPaintLikeClass(class) {
@@ -1620,7 +1630,7 @@ func listRelative(root string) []string {
 }
 
 func textReport(r Report) string {
-	return fmt.Sprintf("ETS2OMSI V2.2.5 Conversion Report\r\nVehicle: %s\r\nStatus: %s\r\nOutput: %s\r\nModels: %d\r\nTextures copied: %d\r\nExact texture bindings: %d\r\nOn-demand package textures: %d\r\nUnresolved visible textures: %d\r\nDimensions LxWxH: %.3f x %.3f x %.3f m\r\nO3D XYZ dims: %.3f x %.3f x %.3f m\r\nOrientation: %t\r\nGround: %t\r\nWheel meshes: %d\r\nWheel basis: %s\r\nWarnings: %d\r\nErrors: %d\r\n", r.Name, r.Status, r.Output, len(r.Models), r.Textures.Copied, r.Textures.ExactResolved, r.Textures.OnDemandResolved, len(r.Textures.Unresolved), r.Auto.Length, r.Auto.Width, r.Auto.Height, r.Validation.O3DDimensions[0], r.Validation.O3DDimensions[1], r.Validation.O3DDimensions[2], r.Validation.OrientationOK, r.Validation.GroundOK, r.Validation.WheelMeshes, r.Auto.WheelBasis, len(r.Warnings), len(r.Errors))
+	return fmt.Sprintf("ETS2OMSI V2.3.0 Conversion Report\r\nVehicle: %s\r\nStatus: %s\r\nOutput: %s\r\nModels: %d\r\nTextures copied: %d\r\nExact texture bindings: %d\r\nOn-demand package textures: %d\r\nUnresolved visible textures: %d\r\nDimensions LxWxH: %.3f x %.3f x %.3f m\r\nO3D XYZ dims: %.3f x %.3f x %.3f m\r\nOrientation: %t\r\nGround: %t\r\nWheel meshes: %d\r\nWheel basis: %s\r\nWarnings: %d\r\nErrors: %d\r\n", r.Name, r.Status, r.Output, len(r.Models), r.Textures.Copied, r.Textures.ExactResolved, r.Textures.OnDemandResolved, len(r.Textures.Unresolved), r.Auto.Length, r.Auto.Width, r.Auto.Height, r.Validation.O3DDimensions[0], r.Validation.O3DDimensions[1], r.Validation.O3DDimensions[2], r.Validation.OrientationOK, r.Validation.GroundOK, r.Validation.WheelMeshes, r.Auto.WheelBasis, len(r.Warnings), len(r.Errors))
 }
 
 func fileExists(p string) bool {

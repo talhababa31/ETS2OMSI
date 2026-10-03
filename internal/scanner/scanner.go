@@ -14,7 +14,7 @@ import (
 	"ets2omsi/internal/sii"
 )
 
-const Version = "V2.2.5"
+const Version = "V2.3.0"
 
 type parsedFile struct {
 	doc sii.Document

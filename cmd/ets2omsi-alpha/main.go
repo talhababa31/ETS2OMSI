@@ -38,7 +38,7 @@ type appState struct {
 
 var current appState
 
-const appVersion = "V2.2.5"
+const appVersion = "V2.3.0"
 
 var (
 	logPath     string

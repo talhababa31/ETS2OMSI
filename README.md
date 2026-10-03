@@ -1,64 +1,131 @@
-# ETS2OMSI V2.2.5 — ETS2 Trafik Arabalarını OMSI 2'ye Çevirici
+<div align="center">
 
-ETS2 (Euro Truck Simulator 2) trafik paketlerindeki (`.scs`) AI arabaları alır, **OMSI 2 AI aracı** (`.ovh` + `.o3d` + texture) olarak çıkarır.
+# ETS2OMSI
 
-- ETS2 kurulu olması **gerekmez**, sadece trafik `.scs` dosyası yeter.
-- Blender, Go veya başka program **gerekmez**.
-- Sadece **otomobiller**, sadece **dış görünüş** (tır, otobüs, iç mekân yok).
+**Euro Truck Simulator 2 trafik araçlarını OMSI 2 AI araçlarına dönüştürür.**
 
-## ⬇️ İndir ve kullan
+![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-2.3.0-0a84ff)
+![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-555)
+![OMSI](https://img.shields.io/badge/hedef-OMSI%202-2ea44f)
+![Go](https://img.shields.io/badge/Go-1.23%2B-00ADD8?logo=go&logoColor=white)
 
-1. Bu sayfada yeşil **Code → Download ZIP**'e bas ve ZIP'i bir klasöre çıkar.
-2. `release\ETS2OMSI.exe`'ye çift tıkla → program **kendi penceresinde** açılır.
-3. **SCS Dosyası Seç** → **Arabaları Bul** → bir arabaya tıkla → **3D önizleme**ye bak → arabaları işaretle → **dönüştür**.
-4. Çıkan araba klasörlerini `OMSI 2\Vehicles\` içine kopyala; her klasördeki `ailists_snippet.txt` satırını haritanın `ailists.cfg` dosyasına ekle.
+[İndir](#indirme) · [Kullanım](#kullanım) · [Nasıl çalışır](#nasıl-çalışır) · [Sorun giderme](#sorun-giderme) · [Geliştirme](#geliştirme) · [Sürüm notları](CHANGELOG.md)
 
-Ayrıntılı anlatım: **[KULLANIM.md](KULLANIM.md)** · Sürüm notları: **[CHANGELOG.md](CHANGELOG.md)**
-
-> 3D motoru (ConverterPIX) ilk dönüşümde otomatik iner (internet gerekir). Pencere için Windows 10/11'de hazır gelen Edge WebView2 kullanılır; yoksa program tarayıcıda açılır.
-
-## ✨ Son sürümde (V2.2.5) neler var
-
-| | |
-|---|---|
-| 🔍 **Materyal teşhis listesi** | Önizlemede her parçanın texture'ı nereden geldi / neden yok, tek tıkla 3D'de gösterilir; teşhis dosyası kaydedilebilir. |
-| 🧱 **Yeniden yazılan texture mantığı** | `.tobj` paketten okunur, tahminsiz eşleşme, aynalı texture desteği, OMSI uyumlu DDS çıktısı. |
-| 🧩 **Texture'lar araca oturuyor** | UV ters çevirme hatası düzeltildi; far, stop, jant, cam ve gövde texture'ları doğru yere oturuyor (önizlemede ve OMSI'de). |
-| 🎨 **Gerçek boya renkleri** | ETS2'nin materyal rengi (diffuse) okunup texture'a işleniyor — arabalar artık gri değil, kendi renginde. Doğru renk varyasyonu (Look) seçiliyor. |
-| 🛞 **Süspansiyon düzeltildi** | Yay/amortisör değerleri araç kütlesinden hesaplanıyor; araç artık ~18 cm çökmüyor, tekerler çamurluğa gömülmüyor. |
-| 🪟 **Kendi penceresi** | Exe artık tarayıcı yerine kendi program penceresinde açılır. Tek kopya çalışır, pencereyi kapatınca program kapanır. |
-| 🚗 **Oyun gibi 3D önizleme** | Gerçek DDS texture'lar, güneş/gökyüzü ışığı, parlama ve yansıma, saydam cam, zemin ve gölge. Önizlemede gördüğün, OMSI'ye giden sonuçla aynı. |
-| 🎨 **Siyah panel düzeltmesi** | ETS2'nin kendi dosyasında (base.scs) kalan boya texture'ları artık siyah değil, aracın kendi gövde renginde. |
-| 🖼️ **Texture kurtarma** | Adında boşluk olan (`tableau de bord.dds`), `.tobj`'siz ve uzantısız yazılmış texture'lar artık paketten doğrudan çıkarılıyor. |
-| 🧹 **Daha az gereksiz uyarı** | Cam yedekleri uyarı sayılmıyor, tekrar eden uyarılar tekleştirildi. |
-
-## 📁 Çıktı yapısı
-
-```text
-ETS2OMSI_<Araç>/
-  <Araç>.ovh
-  model/  model.cfg, body.o3d, wheel_fl/fr/rl/rr.o3d, lod_*.o3d
-  texture/
-  script/ AI_constfile.txt
-  conversion_report.txt / .json
-  ailists_snippet.txt
-```
-
-## 🔧 Sorun olursa
-
-- Log: `%LocalAppData%\ETS2OMSI\ETS2OMSI.log`
-- Her aracın klasöründe `conversion_report.json` var; hangi texture'ın neden çözülmediği orada yazar.
-- Cam ve bazı jantlar (golf_wheel, bmw_wheel…) ETS2'nin base.scs dosyasında olduğu için yedek texture ile gelir — bu beklenen durum.
-
-## 🛠️ Geliştiriciler için
-
-- Kaynaktan derleme: [BUILD.md](BUILD.md)
-- Teknik altyapı: [docs/TECHNICAL_FOUNDATION.md](docs/TECHNICAL_FOUNDATION.md)
-- Jazzycat paketi analiz raporu: [docs/ANALIZ_RAPORU.md](docs/ANALIZ_RAPORU.md)
-- Eski sürüm notları: [docs/history/](docs/history/) · Geliştirme devir notları: [docs/handoff/](docs/handoff/)
-
-Akış: `.scs → tarayıcı (scanner) → araba → PMD/PMG → ConverterPIX → PIM/PIT → iç sahne → OMSI O3D/model.cfg/OVH`
+</div>
 
 ---
 
-<sub>English: ETS2OMSI converts ETS2 traffic-car exteriors from a single `.scs` package into OMSI 2 AI vehicles. Download the ZIP and run `release/ETS2OMSI.exe`. No ETS2 install, base/DLC archives or Blender needed.</sub>
+## Genel bakış
+
+ETS2OMSI, tek bir ETS2 trafik paketindeki (`.scs`) otomobilleri tarar ve her birini OMSI 2'ye kopyalanmaya hazır bir AI aracı olarak dışa aktarır: gövde ve ayrı tekerlek modelleri (`.o3d`), texture'lar, `model.cfg`, `.ovh` ve AI ayarları.
+
+| Gerekmez | Gerekir |
+|---|---|
+| ETS2 kurulumu, DLC, Blender, Go | Windows 10/11 ve bir ETS2 trafik paketi (`.scs`) |
+
+> Kapsam: yalnızca otomobiller, yalnızca dış görünüş. Tır, otobüs ve iç mekân dönüştürülmez.
+
+## Özellikler
+
+- **Tek pencerede çalışma** — paket tarama, araç listesi, 3D önizleme ve toplu dönüştürme.
+- **Oyun benzeri 3D önizleme** — gerçek texture'lar, ışık, yansıma, saydam cam; önizleme OMSI çıktısıyla birebir aynı veriyi kullanır.
+- **Deterministik texture çözümleme** — her materyal için `.tobj` dosyası paketten okunur; tahmin yapılmaz.
+- **Eksik texture üretimi** — ETS2'nin kendi dosyalarında kalan cam, far, stop, sinyal, krom, jant ve lastik texture'ları otomatik üretilir.
+- **ETS2 boya renkleri** — materyal `diffuse` rengi ve seçili renk varyasyonu (Look) texture'a işlenir.
+- **Materyal teşhis listesi** — her parçanın texture'ının nereden geldiği ya da neden bulunamadığı gösterilir ve dışa aktarılabilir.
+- **OMSI uyumlu çıktı** — doğru eksenler, tekerlek temas noktasına göre zemin, ayrı ve animasyonlu tekerlekler, kütleden hesaplanan süspansiyon.
+
+## İndirme
+
+1. **Code → Download ZIP** ile depoyu indirin ve bir klasöre çıkarın.
+2. Program: [`release/ETS2OMSI.exe`](release/ETS2OMSI.exe)
+
+İlk dönüşümde 3D model çözücü (ConverterPIX) otomatik indirilir; bunun için internet bağlantısı gerekir.
+
+## Kullanım
+
+1. `ETS2OMSI.exe` dosyasını çalıştırın. Program kendi penceresinde açılır.
+2. **SCS Dosyası Seç** ile trafik paketini seçin ve **Arabaları Bul**'a tıklayın.
+3. Bir araç seçip **3D önizleme**yi açın; alttaki **Materyaller** listesinden texture durumunu kontrol edin.
+4. Araçları işaretleyip **OMSI'ye Dönüştür**'e tıklayın.
+5. Oluşan araç klasörlerini `OMSI 2\Vehicles\` içine kopyalayın ve her klasördeki `ailists_snippet.txt` satırını haritanın `ailists.cfg` dosyasına ekleyin.
+
+Ayrıntılı anlatım: [KULLANIM.md](KULLANIM.md)
+
+### Çıktı yapısı
+
+```text
+ETS2OMSI_<Araç>/
+├── <Araç>.ovh
+├── model/
+│   ├── model.cfg
+│   ├── body.o3d
+│   ├── lod_*.o3d
+│   └── wheel_fl.o3d · wheel_fr.o3d · wheel_rl.o3d · wheel_rr.o3d
+├── texture/
+├── script/AI_constfile.txt
+├── conversion_report.json · conversion_report.txt
+└── ailists_snippet.txt
+```
+
+## Nasıl çalışır
+
+```mermaid
+flowchart LR
+    A[Trafik .scs] --> B[Tarayıcı<br/>traffic_storage · SII]
+    B --> C[Araç<br/>PMD/PMG · Look · tekerlekler]
+    C --> D[ConverterPIX<br/>PIM/PIT]
+    D --> E[İç sahne<br/>geometri · UV · materyal]
+    E --> F[Texture çözümleme<br/>.tobj → resim]
+    F --> G[OMSI çıktısı<br/>O3D · model.cfg · OVH]
+```
+
+**Texture çözümleme kuralları**
+
+| Adım | Kural |
+|---|---|
+| 1 | Materyal → PIT'teki seçili Look → texture nesnesi (`.tobj`) |
+| 2 | `.tobj` paketten okunur: resim yolu ve kenar davranışı (tekrar / clamp / ayna) |
+| 3 | Resim yalnızca tam yolundan ya da aynı klasörde boşluk/alt çizgi farkıyla aranır |
+| 4 | Ayna texture'lar OMSI için dönüştürülür; DX10 DDS ve TGA, OMSI uyumlu DDS'e çevrilir |
+| 5 | Pakette olmayan texture'lar parça türüne göre üretilir (cam, far, stop, sinyal, krom, jant, lastik, iç mekân) |
+
+Ayrıntılar: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+## Sorun giderme
+
+| Belirti | Çözüm |
+|---|---|
+| Texture yanlış ya da eksik | Önizlemedeki **Materyaller** listesine bakın; **Teşhis dosyasını kaydet** ile oluşan `.json` dosyasını bir hata kaydına ekleyin. |
+| Program açılmıyor | Log dosyası: `%LocalAppData%\ETS2OMSI\ETS2OMSI.log` |
+| Pencere yerine tarayıcı açılıyor | Edge WebView2 yüklü değil; program tarayıcı moduna geçer, işlev aynıdır. |
+| Araç OMSI'de görünmüyor | `ailists.cfg` satırını ve klasör adının `Vehicles` altında olduğunu kontrol edin. |
+
+Hata bildirmek için: [yeni hata kaydı](https://github.com/talhababa31/ETS2OMSI/issues/new/choose)
+
+## Geliştirme
+
+```powershell
+go vet ./...
+go test -race ./...
+$env:GOOS="windows"; $env:GOARCH="amd64"
+go build -trimpath -ldflags "-s -w -H windowsgui" -o release/ETS2OMSI.exe ./cmd/ets2omsi-alpha
+```
+
+| Klasör | İçerik |
+|---|---|
+| `cmd/ets2omsi-alpha` | Masaüstü uygulaması (pencere, HTTP API, web arayüzü) |
+| `cmd/ets2omsi-cli` | Komut satırı aracı |
+| `internal/scanner` · `internal/sii` | Paket tarama, SII ayrıştırma |
+| `internal/convert` | Dönüştürme hattı, texture çözümleme, önizleme |
+| `internal/dds` | DDS çözücü (BC1–BC5, sıkıştırmasız, DX10) |
+| `internal/o3d` · `internal/omsi` | OMSI O3D yazıcı, `model.cfg` / `.ovh` üretimi |
+
+Derleme ayrıntıları: [BUILD.md](BUILD.md)
+
+## Üçüncü taraf
+
+- [ConverterPIX](https://github.com/mwl4/ConverterPIX) (LGPL-3.0) — ETS2 ikili modellerini çözmek için ayrı bir araç olarak kullanılır.
+- Kütüphaneler: [go-webview2](https://github.com/jchv/go-webview2).
+
+ETS2OMSI; ETS2, DLC, mod araç dosyaları veya OMSI içeriği dağıtmaz. Ayrıntı: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)

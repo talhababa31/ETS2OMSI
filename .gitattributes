@@ -1,0 +1,6 @@
+*.exe binary
+*.dds binary
+*.scs binary
+*.go text eol=lf
+*.js text eol=lf
+*.md text eol=lf

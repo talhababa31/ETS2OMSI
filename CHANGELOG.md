@@ -1,44 +1,59 @@
-# Changelog
+# Sürüm notları
 
-## V2.2.5 — Texture mantığı baştan yazıldı
+Biçim [Keep a Changelog](https://keepachangelog.com/tr-TR/1.1.0/) esas alınarak hazırlanmıştır.
 
-- **Kesin (tahminsiz) eşleşme:** Materyalin istediği `.tobj` paketten okunur, ETS2'nin ikili formatına göre çözülür (hangi resim, hangi kenar davranışı), resim de paketten okunur. Sadece tam yol ve aynı klasörde boşluk/alt çizgi farkı kabul edilir. Paketin başka bir yerinden "adı benzeyen" texture alınması tamamen kaldırıldı (başka araçların texture'ları gelebiliyordu).
-- **Ayna/clamp kenar davranışı:** ETS2'nin aynalı texture'ları OMSI'de aynı görünecek şekilde dönüştürülüyor (texture aynasıyla birleştirilir, UV ayarlanır); clamp UV'leri sınırlanıyor.
-- **OMSI uyumlu biçim:** DX10 başlıklı DDS, TGA, PNG vb. OMSI'nin kesin okuduğu sıkıştırmasız DDS'e (mipmap'li) çevriliyor; zaten uyumlu DXT dosyaları olduğu gibi kopyalanıyor.
-- **Materyal teşhis listesi:** 3D önizlemenin altında her parça: ✔ paketten / ✖ pakette yok / ⚠ yedek, sebebi ve dosya yolu. Satıra tıklayınca parça 3D'de turuncu yanar. "Teşhis dosyasını kaydet" ile tek dosya halinde dışa aktarılır. Dönüşüm raporunda da (`conversion_report.json` → `materials`) aynı bilgi var.
+## [2.3.0] — 2026-10-03
 
-## V2.2.4 — Texture'lar araca oturuyor (UV düzeltmesi)
+### Eklendi
+- Pakette bulunmayan texture'lar için parça türüne göre üretilen texture'lar: cam, far, stop lambası, sinyal, krom, jant, lastik, iç mekân, plaka, trim. Gölge/flare yardımcı yüzeyleri görünmez yapılır.
+- Far ile stop lambası adla ayırt edilemediğinde aracın ön/arka yarısındaki konuma göre ayrılır.
 
-- **Asıl texture hatası:** UV koordinatlarının V ekseni yanlışlıkla ters çevriliyordu (`1 - v`). ConverterPIX ETS2'nin DirectX düzenindeki UV'lerini olduğu gibi yazar, OMSI de aynı düzeni kullanır (ETS2'nin resmi Blender eklentisi çevirmeyi yalnızca Blender'a alırken yapar). Ters çevirme texture atlasının yanlış bölgesini okutuyordu: farlarda stop lambası, gövdede başka parçaların texture'ı. Hem 3D önizleme hem OMSI çıktısı düzeldi.
-- **Doğru UV kanalı:** Bir parçada birden çok UV kanalı varsa artık base texture'ın kullandığı kanal (`_TEXCOORD0` etiketi) seçiliyor, körlemesine `_UV0` değil.
+### Değişti
+- Depo düzeni: profesyonel README, mimari dokümanı, hata bildirme şablonu, `.editorconfig`, `.gitattributes`; iç geliştirme notları `docs/internal/` altına taşındı.
 
-## V2.2.3 — Boya renkleri ve süspansiyon
+## [2.2.5] — 2026-10-03
 
-- **Boya rengi:** ETS2 trafik arabalarında gövde texture'ı çoğunlukla gri tonludur, rengi materyalin `diffuse` değeri verir. Artık bu renk PIT'ten okunup texture'a işleniyor (gri araba sorunu). Texture bulunamazsa yedek boya da bu renkten yapılıyor.
-- **Look (renk varyasyonu):** PIT'teki Look'lar karıştırılıyordu (son yazılan kazanıyordu). Artık aracın kendi Look'u, yoksa `default`, yoksa ilk Look seçiliyor.
-- **Süspansiyon:** Yay/sönüm değerleri kütleden fiziksel olarak hesaplanıyor (≈2,3 Hz, sönüm oranı 0,45). Eski değerler (1,5 t için 40 kN/m) aracı ~18 cm çöktürüp tekerleri çamurluğa gömüyordu; şimdi ~4,5 cm.
-- **Tekerlek kopyası hatası:** Aynı tekerlek modeli 4 tekerlekte paylaşılırken konumlar ortak veriyi değiştiriyordu; artık her tekerlek kendi kopyasını alıyor.
+### Değişti
+- Texture çözümleme baştan yazıldı: `.tobj` paketten okunur ve ETS2'nin ikili biçimine göre çözülür; yalnızca tam yol ve aynı klasördeki eşleşmeler kabul edilir. Başka klasörlerden ad benzerliğiyle texture alınması kaldırıldı.
+- DX10 başlıklı DDS, TGA ve PNG texture'lar OMSI uyumlu, mipmap'li DDS'e çevrilir.
 
-## V2.2.2 — Pencere, gerçek 3D görüntüleyici, boya düzeltmesi
+### Eklendi
+- Ayna ve clamp kenar davranışının OMSI'ye aktarılması.
+- 3D önizlemede materyal teşhis listesi (durum, sebep, dosya yolu, parçayı vurgulama, JSON dışa aktarma); `conversion_report.json` içinde `materials`.
 
-- Program artık tarayıcıda değil, kendi penceresinde açılıyor (Edge WebView2). Tarayıcı sadece yedek.
-- 3D görüntüleyici baştan yazıldı: gerçek DDS texture'lar, güneş + gökyüzü ışığı, parlama/yansıma, saydam cam, zemin ve gölge; üçgen atlama kaldırıldı (delikler yok). Önizleme dönüşümle aynı texture ve fallback'leri kullanıyor.
-- OMSI'de siyah kaput/çamurluk/tampon sorunu: base.scs'te kalan boya materyalleri artık neredeyse siyah RGB(48,48,52) yerine aracın kendi gövde texture'ındaki baskın renkle dolduruluyor.
-- Yeni DDS okuyucu (BC1/BC2/BC3/BC4/BC5, sıkıştırmasız, DX10).
+## [2.2.4] — 2026-10-03
 
-## V2.2.1 — Jazzycat analiz düzeltmeleri
+### Düzeltildi
+- UV koordinatlarının V ekseni yanlışlıkla ters çevriliyordu; texture'lar atlasın yanlış bölgesinden okunuyordu.
+- Birden fazla UV kanalı olan parçalarda `_TEXCOORD0` kanalı seçilir.
 
-- 3D önizleme: üçgen sarımı vertex normallerine göre düzeltiliyor (O3D çıktısıyla aynı kural); CULL_FACE kapalı, `0` normal değerleri artık doğru. Araçlar önizlemede siyah görünmüyor.
-- Texture: seçilen paket artık doğrudan okunuyor. Adında boşluk olan (`tableau de bord.dds`), yanında `.tobj` olmayan (`cargocolor.dds`) ve PIT'te uzantısız yazılan texture'lar çıkarılıyor. Eşleşme sırası: tam yol → TOBJ içindeki yol → boşluk/alt çizgi duyarsız yol → paket genelinde tekil dosya adı (belirsizse reddedilir). OMSI'ye yazılan texture adlarında boşluk yok.
-- Uyarılar: cam fallback'leri artık uyarı sayılmıyor (tasarım gereği, base.scs'teki paylaşılan cam); gövde+LOD tekrar eden uyarılar tekilleştirildi.
-- EXE: görünür durum penceresi (URL + log yolu, "Evet = tarayıcıda aç / Hayır = kapat"), tek-örnek koruması (ikinci çift tıklama mevcut örneği açar), mutlak log yolu (`%LocalAppData%\ETS2OMSI\`), arayüzde ⏻ Kapat düğmesi + `/api/quit`, `--no-browser` ve `--no-window` seçenekleri.
+## [2.2.3] — 2026-10-03
 
-## V2.2 MATERIAL + PHYSICS
+### Eklendi
+- ETS2 materyal `diffuse` renginin texture'a işlenmesi; seçili renk varyasyonunun (Look) kullanılması.
 
-- Fixed sparse PIM material indices so triangle material slots are never compressed or shifted.
-- Prevented normal/mask/specular/reflection maps from being promoted to visible diffuse textures.
-- Wheel models now inherit the same exact slot-safe material pipeline.
-- Added automatic OMSI AI physics profiles from vehicle name + measured model dimensions.
-- Added estimated mass/profile to conversion result UI.
-- Suppressed harmless optional ETS2 helper-material messages from user-facing warnings.
-- Kept SCS-only / cars-only / exterior-only scope.
+### Düzeltildi
+- Süspansiyon değerleri kütleden hesaplanır; araçların yaklaşık 18 cm çökmesi giderildi.
+- Dört tekerleğin ortak model verisini değiştirmesi (konumların üst üste eklenmesi).
+
+## [2.2.2] — 2026-10-03
+
+### Eklendi
+- Kendi penceresinde çalışan masaüstü uygulaması (Edge WebView2).
+- Texture'lı, ışıklı 3D önizleme; DDS çözücü (BC1–BC5, sıkıştırmasız, DX10).
+
+### Düzeltildi
+- Çözülemeyen boya materyallerinin neredeyse siyah görünmesi.
+
+## [2.2.1] — 2026-10-03
+
+### Düzeltildi
+- 3D önizlemede yüzlerin ters çizilmesi.
+- Adında boşluk olan, `.tobj`'siz ve uzantısız referanslı texture'ların bulunamaması.
+- Uygulamanın görünmez çalışması, birden fazla kopya açılması, göreli log yolu.
+
+## [2.2.0]
+
+- Seyrek materyal indeksleri, yalnızca diffuse texture seçimi, kütle ve ölçüye dayalı AI fizik profili.
+
+Daha eski sürümler: [docs/history](docs/history/) · [docs/internal/FULL_CHANGELOG.md](docs/internal/FULL_CHANGELOG.md)
