@@ -128,8 +128,10 @@ func writePaintFallback(texDir string, c color.NRGBA, tr *TextureReport) string 
 		if err != nil {
 			return ""
 		}
-		tr.GeneratedFallbacks++
-		tr.Files = append(tr.Files, name)
+		if tr != nil {
+			tr.GeneratedFallbacks++
+			tr.Files = append(tr.Files, name)
+		}
 	}
 	return name
 }

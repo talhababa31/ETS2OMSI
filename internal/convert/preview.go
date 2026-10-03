@@ -26,6 +26,12 @@ type PreviewMaterial struct {
 	Reason  string     `json:"reason,omitempty"`
 	Model   string     `json:"model,omitempty"`
 }
+type PreviewColor struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Hex   string `json:"hex,omitempty"`
+}
+
 type PreviewData struct {
 	VehicleID         string            `json:"vehicle_id"`
 	Name              string            `json:"name"`
@@ -34,6 +40,8 @@ type PreviewData struct {
 	Normals           []float32         `json:"normals"`
 	UVs               []float32         `json:"uvs"`
 	TextureSet        string            `json:"texture_set,omitempty"`
+	Color             string            `json:"color,omitempty"`
+	Colors            []PreviewColor    `json:"colors,omitempty"`
 	Class             string            `json:"class,omitempty"`
 	ClassBasis        string            `json:"class_basis,omitempty"`
 	Indices           []uint32          `json:"indices"`
@@ -58,6 +66,12 @@ func Preview(ctx context.Context, v scanner.Vehicle, mounts []string, exe string
 // ETS2 wheel accessories exactly as the conversion pipeline does. It is still a
 // diagnostic WebGL preview, not an emulation of OMSI's DirectX renderer.
 func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, mode string) (PreviewData, error) {
+	return PreviewModeColor(ctx, v, mounts, exe, mode, "")
+}
+
+// PreviewModeColor previews one colour variant: "" = the vehicle's own look,
+// "look:<name>" = another ETS2 look, or a palette id (see PaintPalette).
+func PreviewModeColor(ctx context.Context, v scanner.Vehicle, mounts []string, exe, mode, color string) (PreviewData, error) {
 	if len(v.Models) == 0 {
 		return PreviewData{}, fmt.Errorf("no PMD model resolved")
 	}
@@ -93,7 +107,13 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 	texDir := PreviewTextureDir(set)
 	_ = os.RemoveAll(texDir)
 	_ = os.MkdirAll(texDir, 0755)
-	bodyHints := loadPITMaterials(&sc, px.PIT, vehicleLook(v, main.Look))
+	look := vehicleLook(v, main.Look)
+	color = strings.TrimSpace(color)
+	if strings.HasPrefix(color, "look:") {
+		look = strings.TrimPrefix(color, "look:")
+	}
+	paint, paintOK := paintByID(color)
+	bodyHints := loadPITMaterials(&sc, px.PIT, look)
 	class, classBasis := detectVehicleClass(v.DisplayName+" "+v.ID, sc)
 	texRoots := []string{px.WorkDir}
 	resolver := newTextureResolver(mounts, texDir)
@@ -120,6 +140,10 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 		}
 		previewPIXFallback(ctx, exe, mounts, hints, texRoots, work, resolver)
 		diags = append(diags, previewMaterials(resolver, &sc, bodyHints, "body")...)
+		if paintOK {
+			newOpaqueFixer(texDir).fixScene(&sc)
+			newRecolorer(texDir).recolorScene(&sc, paint)
+		}
 		for i := range wv {
 			diags = append(diags, previewMaterials(resolver, &wv[i].Scene, wv[i].Hints, "wheel_"+strings.ToLower(wv[i].Slot))...)
 			wv[i].Scene.Translate(0, 0, -g)
@@ -132,7 +156,12 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 		sc.Translate(0, 0, -bb.Min.Z)
 		previewPIXFallback(ctx, exe, mounts, bodyHints, texRoots, work, resolver)
 		diags = append(diags, previewMaterials(resolver, &sc, bodyHints, "body")...)
+		if paintOK {
+			newOpaqueFixer(texDir).fixScene(&sc)
+			newRecolorer(texDir).recolorScene(&sc, paint)
+		}
 	}
+	newOpaqueFixer(texDir).fixScene(&sc) // same alpha-free textures as the OMSI export
 	p := previewFromScene(v, sc)
 	if len(diags) == len(p.Materials) {
 		for i, d := range diags {
@@ -144,6 +173,13 @@ func PreviewMode(ctx context.Context, v scanner.Vehicle, mounts []string, exe, m
 		}
 	}
 	p.TextureSet = set
+	p.Color = color
+	for _, l := range pitLookNames(px.PIT) {
+		p.Colors = append(p.Colors, PreviewColor{ID: "look:" + l, Label: "ETS2: " + l})
+	}
+	for _, c := range PaintPalette {
+		p.Colors = append(p.Colors, PreviewColor{ID: c.ID, Label: c.Label, Hex: c.Hex})
+	}
 	p.Class, p.ClassBasis = class, classBasis
 	p.Mode = mode
 	p.TrianglesOriginal = original

@@ -1,4 +1,4 @@
-# ETS2OMSI V2.4.0 — Nasıl Kullanılır
+# ETS2OMSI V2.5.0 — Nasıl Kullanılır
 
 ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 
@@ -32,7 +32,7 @@ ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 ## 4. OMSI 2'ye koy
 
 1. Çıktıdaki her araba klasörünü `OMSI 2\Vehicles\` içine kopyala.
-2. Her araç klasöründe `ailists_snippet.txt` var; içindeki satırı haritanın `ailists.cfg` dosyasındaki AI listesine ekle.
+2. Her araç klasöründe `ailists_snippet.txt` var; içindeki **tüm satırları** (her renk bir satır) haritanın `ailists.cfg` dosyasındaki AI listesine ekle.
 3. OMSI'yi aç, trafikte arabaları kontrol et.
 
 ## Sorun olursa

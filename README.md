@@ -33,6 +33,7 @@ ETS2OMSI, tek bir ETS2 trafik paketindeki (`.scs`) otomobilleri tarar ve her bir
 - **Eksik texture üretimi** — ETS2'nin kendi dosyalarında kalan cam, far, stop, sinyal, krom, jant ve lastik texture'ları otomatik üretilir.
 - **ETS2 boya renkleri** — materyal `diffuse` rengi ve seçili renk varyasyonu (Look) texture'a işlenir.
 - **Materyal teşhis listesi** — her parçanın texture'ının nereden geldiği ya da neden bulunamadığı gösterilir ve dışa aktarılabilir.
+- **Renk çeşitleri** — her araç ETS2'deki ek renkleri ve seçilen palet renkleriyle ayrı OMSI araçları olarak çıkar; trafik tek renk olmaz.
 - **Araç sınıfı** — sedan, hatchback, kombi, coupe, SUV, pickup, van, minibüs otomatik bulunur ya da elle seçilir; fizik ve AI hızı sınıfa göre ayarlanır.
 - **Eksik tekerlek üretimi** — tekerlek modeli olmayan araçlara (ör. panelvanlar) jant ve lastik üretilir.
 - **OMSI uyumlu çıktı** — doğru eksenler, tekerlek temas noktasına göre zemin, ayrı ve animasyonlu tekerlekler, kütleden hesaplanan süspansiyon.
@@ -59,8 +60,9 @@ Ayrıntılı anlatım: [KULLANIM.md](KULLANIM.md)
 ```text
 ETS2OMSI_<Araç>/
 ├── <Araç>.ovh
+├── <Araç>_<renk>.ovh        (renk çeşitleri)
 ├── model/
-│   ├── model.cfg
+│   ├── model.cfg · model_<renk>.cfg
 │   ├── body.o3d
 │   ├── lod_*.o3d
 │   └── wheel_fl.o3d · wheel_fr.o3d · wheel_rl.o3d · wheel_rr.o3d

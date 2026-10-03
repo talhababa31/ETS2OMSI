@@ -36,9 +36,10 @@ type Options struct {
 	OutputRoot     string
 	WorkRoot       string
 	KeepWork       bool
-	StrictFidelity bool   // fail instead of committing when diagnostic/fallback textures are required
-	CacheRoot      string // optional persistent ConverterPIX cache root
-	Class          string // vehicle class chosen by the user; "" = automatic
+	StrictFidelity bool     // fail instead of committing when diagnostic/fallback textures are required
+	CacheRoot      string   // optional persistent ConverterPIX cache root
+	Class          string   // vehicle class chosen by the user; "" = automatic
+	Colors         []string // palette colour ids; nil = default set, ["none"] = none
 }
 type ModelReport struct {
 	Source     string `json:"source"`
@@ -107,6 +108,7 @@ type Report struct {
 	Models     []ModelReport    `json:"models"`
 	Textures   TextureReport    `json:"textures"`
 	Materials  []MaterialDiag   `json:"materials,omitempty"`
+	Colors     []ColorVariant   `json:"color_variants,omitempty"`
 	Auto       AutoReport       `json:"automation"`
 	Warnings   []string         `json:"warnings,omitempty"`
 	Errors     []string         `json:"errors,omitempty"`
@@ -132,7 +134,7 @@ type wheelVisual struct {
 
 func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 	start := time.Now()
-	rep = Report{Version: "V2.4.0", VehicleID: opt.Vehicle.ID, Name: opt.Vehicle.DisplayName, Started: start.Format(time.RFC3339), Status: "failed", Stage: "prepare"}
+	rep = Report{Version: "V2.5.0", VehicleID: opt.Vehicle.ID, Name: opt.Vehicle.DisplayName, Started: start.Format(time.RFC3339), Status: "failed", Stage: "prepare"}
 	defer func() { rep.DurationMS = time.Since(start).Milliseconds() }()
 	if len(opt.Vehicle.Models) == 0 {
 		rep.Stage = "resolve model"
@@ -312,6 +314,7 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 	rep.Stage = "resolve exact textures"
 	resolver := newTextureResolver(opt.MountPaths, texDir)
 	defer resolver.Close()
+	opaque := newOpaqueFixer(texDir)
 	if !resolver.Native() {
 		// Package cannot be read directly (e.g. HashFS without helper): use
 		// the textures ConverterPIX exports instead.
@@ -350,6 +353,7 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 			}
 			applySafeMaterialFallbacks(&cm.sc, unresolved, texDir, &rep.Textures, &rep.Warnings)
 		}
+		opaque.fixScene(&cm.sc)
 		model := toO3D(cm.sc)
 		op := filepath.Join(stage, "model", cm.o3dName)
 		if er = o3d.WriteFile(op, &model); er != nil {
@@ -403,6 +407,7 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 			continue
 		}
 		op := filepath.Join(stage, "model", name)
+		opaque.fixScene(&wv.Scene)
 		wm := toO3D(wv.Scene)
 		if er = o3d.WriteFile(op, &wm); er != nil {
 			return rep, er
@@ -449,6 +454,10 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 	if er = omsi.Write(stage, spec); er != nil {
 		return rep, er
 	}
+	rep.Stage = "colour variants"
+	variants, vw := exportColorVariants(stage, spec, converted, resolver, opaque, texDir, opt.Colors)
+	rep.Colors = variants
+	rep.Warnings = append(rep.Warnings, vw...)
 
 	rep.Stage = "validate OMSI package"
 	missingTex := validateAllO3DTextureRefs(stage)
@@ -486,6 +495,9 @@ func Vehicle(ctx context.Context, opt Options) (rep Report, err error) {
 	}
 
 	snippet := fmt.Sprintf("vehicles\\%s\\%s.ovh\r\n", filepath.Base(final), folder)
+	for _, cv := range variants {
+		snippet += fmt.Sprintf("vehicles\\%s\\%s\r\n", filepath.Base(final), cv.OVH)
+	}
 	_ = os.WriteFile(filepath.Join(stage, "ailists_snippet.txt"), []byte("; ETS2OMSI generated vehicle reference\r\n"+snippet), 0644)
 	rep.Stage = "complete"
 	rep.Warnings = uniqueStringsLocal(rep.Warnings)
@@ -1688,7 +1700,7 @@ func listRelative(root string) []string {
 }
 
 func textReport(r Report) string {
-	return fmt.Sprintf("ETS2OMSI V2.4.0 Conversion Report\r\nVehicle: %s\r\nStatus: %s\r\nOutput: %s\r\nModels: %d\r\nTextures copied: %d\r\nExact texture bindings: %d\r\nOn-demand package textures: %d\r\nUnresolved visible textures: %d\r\nDimensions LxWxH: %.3f x %.3f x %.3f m\r\nO3D XYZ dims: %.3f x %.3f x %.3f m\r\nOrientation: %t\r\nGround: %t\r\nWheel meshes: %d\r\nWheel basis: %s\r\nWarnings: %d\r\nErrors: %d\r\n", r.Name, r.Status, r.Output, len(r.Models), r.Textures.Copied, r.Textures.ExactResolved, r.Textures.OnDemandResolved, len(r.Textures.Unresolved), r.Auto.Length, r.Auto.Width, r.Auto.Height, r.Validation.O3DDimensions[0], r.Validation.O3DDimensions[1], r.Validation.O3DDimensions[2], r.Validation.OrientationOK, r.Validation.GroundOK, r.Validation.WheelMeshes, r.Auto.WheelBasis, len(r.Warnings), len(r.Errors))
+	return fmt.Sprintf("ETS2OMSI V2.5.0 Conversion Report\r\nVehicle: %s\r\nStatus: %s\r\nOutput: %s\r\nModels: %d\r\nTextures copied: %d\r\nExact texture bindings: %d\r\nOn-demand package textures: %d\r\nUnresolved visible textures: %d\r\nDimensions LxWxH: %.3f x %.3f x %.3f m\r\nO3D XYZ dims: %.3f x %.3f x %.3f m\r\nOrientation: %t\r\nGround: %t\r\nWheel meshes: %d\r\nWheel basis: %s\r\nWarnings: %d\r\nErrors: %d\r\n", r.Name, r.Status, r.Output, len(r.Models), r.Textures.Copied, r.Textures.ExactResolved, r.Textures.OnDemandResolved, len(r.Textures.Unresolved), r.Auto.Length, r.Auto.Width, r.Auto.Height, r.Validation.O3DDimensions[0], r.Validation.O3DDimensions[1], r.Validation.O3DDimensions[2], r.Validation.OrientationOK, r.Validation.GroundOK, r.Validation.WheelMeshes, r.Auto.WheelBasis, len(r.Warnings), len(r.Errors))
 }
 
 func fileExists(p string) bool {

@@ -2,6 +2,15 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr-TR/1.1.0/) esas alınarak hazırlanmıştır.
 
+## [2.5.0] — 2026-10-03
+
+### Eklendi
+- **Renk çeşitleri:** Her araç birden fazla renkte dışa aktarılır; her renk kendi `.ovh` dosyasını alır, 3D modeller ortaktır ve `ailists_snippet.txt` tüm renkleri listeler. Kaynaklar: (1) aracın ETS2'deki ek renkleri (PIT Look'ları), (2) renk paleti — beyaz/gümüş gövde boyası, gölgelendirme korunarak seçilen renge boyanır; trim, lamba ve cam değişmez.
+- Ayarlarda **Renk çeşitleri** seçimi (13 renk, varsayılan: siyah, gümüş, füme, lacivert, kırmızı); 3D önizlemede renk kutucukları.
+
+### Düzeltildi
+- **OMSI'de lekeli / yer yer saydam gövde:** ETS2'nin opak texture'lardaki alfa kanalı (parlaklık maskesi) OMSI'de saydamlık olarak kullanılıyordu. Opak parçaların texture'ları artık alfa kanalı olmadan yazılır.
+
 ## [2.4.0] — 2026-10-03
 
 ### Düzeltildi

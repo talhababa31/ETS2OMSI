@@ -48,3 +48,9 @@ Aks başına yay, sönüm ve azami kuvvet kütleden hesaplanır (yaklaşık 2,3 
 ## Araç sınıfı
 
 Önce ad (model adları ve anahtar kelimeler), sonra gövde biçimi: yükseklik (van/minibüs), alçak arka kasa (pickup), yükseklik+genişlik (SUV), arka %10'un tavana göre yüksekliği (hatchback/kombi), alçak gövde (coupe), aksi halde sedan. Elle seçim her zaman önceliklidir. Sınıf; kütle aralığı, süspansiyon frekansı, ön/arka yük dağılımı ve AI azami hızını belirler.
+
+## Renk çeşitleri ve alfa
+
+- Opak materyallerin texture'ları alfa kanalı olmadan yazılır (`*_opq.dds`): ETS2 alfa kanalında parlaklık maskesi tutar, OMSI bunu saydamlık sayar.
+- Renk çeşitleri: PIT'teki diğer Look'lar ayrı ayrı çözülür; palet renkleri için gövde boyası (baskın rengi açık ve doygunluğu düşük texture'lar) piksel bazında, göreli parlaklık korunarak boyanır. Doygun (lamba) ve koyu (trim) pikseller değişmez.
+- Her çeşit `model/model_<id>.cfg` ( yalnız `[matl]` texture'ları farklı) ve `<Araç>_<id>.ovh` olarak yazılır; O3D dosyaları ortaktır.
