@@ -1,5 +1,10 @@
 # Changelog
 
+## V2.2.4 — Texture'lar araca oturuyor (UV düzeltmesi)
+
+- **Asıl texture hatası:** UV koordinatlarının V ekseni yanlışlıkla ters çevriliyordu (`1 - v`). ConverterPIX ETS2'nin DirectX düzenindeki UV'lerini olduğu gibi yazar, OMSI de aynı düzeni kullanır (ETS2'nin resmi Blender eklentisi çevirmeyi yalnızca Blender'a alırken yapar). Ters çevirme texture atlasının yanlış bölgesini okutuyordu: farlarda stop lambası, gövdede başka parçaların texture'ı. Hem 3D önizleme hem OMSI çıktısı düzeldi.
+- **Doğru UV kanalı:** Bir parçada birden çok UV kanalı varsa artık base texture'ın kullandığı kanal (`_TEXCOORD0` etiketi) seçiliyor, körlemesine `_UV0` değil.
+
 ## V2.2.3 — Boya renkleri ve süspansiyon
 
 - **Boya rengi:** ETS2 trafik arabalarında gövde texture'ı çoğunlukla gri tonludur, rengi materyalin `diffuse` değeri verir. Artık bu renk PIT'ten okunup texture'a işleniyor (gri araba sorunu). Texture bulunamazsa yedek boya da bu renkten yapılıyor.

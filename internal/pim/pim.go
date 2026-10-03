@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -129,12 +130,41 @@ func intsFromString(s string) []int {
 	return parseInts(strings.Fields(r.Replace(s)))
 }
 
+var texcoord0RE = regexp.MustCompile(`(?i)_?TEXCOORD0(?:[^0-9]|$)`)
+
+// baseUVStream returns the tag of the UV stream the base texture uses.
+// ConverterPIX names UV streams "_UV<n>" and lists the shader texcoords they
+// feed in "Aliases" ("_TEXCOORD0" ...). The base texture samples TEXCOORD0,
+// which is not always stored in _UV0.
+func baseUVStream(streams []*pixtext.Section) string {
+	for _, st := range streams {
+		tag := strings.ToUpper(strings.Trim(pixtext.First(st, "Tag"), "\"'"))
+		if !strings.HasPrefix(tag, "_UV") && !strings.HasPrefix(tag, "UV") {
+			continue
+		}
+		for k, v := range st.Props {
+			if strings.EqualFold(k, "Aliases") && texcoord0RE.MatchString(strings.Join(v, " ")) {
+				return tag
+			}
+		}
+	}
+	for _, st := range streams {
+		tag := strings.ToUpper(strings.Trim(pixtext.First(st, "Tag"), "\"'"))
+		switch tag {
+		case "_UV0", "_TEXCOORD0", "TEXCOORD0", "UV0":
+			return tag
+		}
+	}
+	return "_UV0"
+}
+
 func parsePiece(sec *pixtext.Section, out *scene.Scene) error {
 	mat := parseIntDefault(pixtext.First(sec, "Material"), 0)
 	streams := pixtext.Children(sec, "Stream")
 	pos := map[int]scene.Vec3{}
 	norm := map[int]scene.Vec3{}
 	uv := map[int]scene.Vec2{}
+	baseUV := baseUVStream(streams)
 	for _, st := range streams {
 		tag := strings.ToUpper(strings.Trim(pixtext.First(st, "Tag"), "\"'"))
 		if tag == "" {
@@ -151,9 +181,12 @@ func parsePiece(sec *pixtext.Section, out *scene.Scene) error {
 				if len(vals) >= 3 {
 					norm[r.Index] = scsVec(vals[0], vals[1], vals[2])
 				}
-			case "_UV0", "_TEXCOORD0", "TEXCOORD0", "UV0":
+			case baseUV:
+				// ConverterPIX writes ETS2's DirectX-style UVs unchanged and
+				// OMSI uses the same convention: no V flip. (Flipping read the
+				// wrong atlas region, e.g. tail lights on the headlights.)
 				if len(vals) >= 2 {
-					uv[r.Index] = scene.Vec2{X: vals[0], Y: 1 - vals[1]}
+					uv[r.Index] = scene.Vec2{X: vals[0], Y: vals[1]}
 				}
 			}
 		}

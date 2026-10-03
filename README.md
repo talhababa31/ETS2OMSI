@@ -1,4 +1,4 @@
-# ETS2OMSI V2.2.3 — ETS2 Trafik Arabalarını OMSI 2'ye Çevirici
+# ETS2OMSI V2.2.4 — ETS2 Trafik Arabalarını OMSI 2'ye Çevirici
 
 ETS2 (Euro Truck Simulator 2) trafik paketlerindeki (`.scs`) AI arabaları alır, **OMSI 2 AI aracı** (`.ovh` + `.o3d` + texture) olarak çıkarır.
 
@@ -17,10 +17,11 @@ Ayrıntılı anlatım: **[KULLANIM.md](KULLANIM.md)** · Sürüm notları: **[CH
 
 > 3D motoru (ConverterPIX) ilk dönüşümde otomatik iner (internet gerekir). Pencere için Windows 10/11'de hazır gelen Edge WebView2 kullanılır; yoksa program tarayıcıda açılır.
 
-## ✨ Son sürümde (V2.2.3) neler var
+## ✨ Son sürümde (V2.2.4) neler var
 
 | | |
 |---|---|
+| 🧩 **Texture'lar araca oturuyor** | UV ters çevirme hatası düzeltildi; far, stop, jant, cam ve gövde texture'ları doğru yere oturuyor (önizlemede ve OMSI'de). |
 | 🎨 **Gerçek boya renkleri** | ETS2'nin materyal rengi (diffuse) okunup texture'a işleniyor — arabalar artık gri değil, kendi renginde. Doğru renk varyasyonu (Look) seçiliyor. |
 | 🛞 **Süspansiyon düzeltildi** | Yay/amortisör değerleri araç kütlesinden hesaplanıyor; araç artık ~18 cm çökmüyor, tekerler çamurluğa gömülmüyor. |
 | 🪟 **Kendi penceresi** | Exe artık tarayıcı yerine kendi program penceresinde açılır. Tek kopya çalışır, pencereyi kapatınca program kapanır. |

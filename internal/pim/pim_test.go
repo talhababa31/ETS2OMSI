@@ -49,7 +49,8 @@ Locator {
 	if math.Abs(s.Vertices[2].Position.Z-1) > 1e-6 {
 		t.Fatalf("transform %+v", s.Vertices[2].Position)
 	}
-	if math.Abs(s.Vertices[2].UV.Y-0) > 1e-6 {
+	// DirectX UV convention is kept (no V flip): (0 1) stays (0 1).
+	if math.Abs(s.Vertices[2].UV.Y-1) > 1e-6 {
 		t.Fatalf("uv %+v", s.Vertices[2].UV)
 	}
 }
@@ -162,5 +163,47 @@ Piece {
 	}
 	if len(sc.Triangles) != 2 || sc.Triangles[0].Material != 2 || sc.Triangles[1].Material != 5 {
 		t.Fatalf("triangle material bindings changed: %+v", sc.Triangles)
+	}
+}
+
+// The base texture samples TEXCOORD0; ConverterPIX may store it in _UV1.
+func TestBaseUVStreamFollowsTexcoord0Alias(t *testing.T) {
+	x := `Piece {
+ Material: 0
+ Stream {
+  Format: FLOAT3
+  Tag: "_POSITION"
+  0 ( 0 0 0 )
+  1 ( 1 0 0 )
+  2 ( 0 1 0 )
+ }
+ Stream {
+  Format: FLOAT2
+  Tag: "_UV0"
+  AliasCount: 1
+  Aliases: "_TEXCOORD1"
+  0 ( 9 9 )
+  1 ( 9 9 )
+  2 ( 9 9 )
+ }
+ Stream {
+  Format: FLOAT2
+  Tag: "_UV1"
+  AliasCount: 2
+  Aliases: "_TEXCOORD0" "_TEXCOORD2"
+  0 ( 0.25 0.75 )
+  1 ( 0.5 0.75 )
+  2 ( 0.25 0.5 )
+ }
+ Triangles {
+  0 ( 0 1 2 )
+ }
+}`
+	s, err := Parse(x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uv := s.Vertices[0].UV; uv.X != .25 || uv.Y != .75 {
+		t.Fatalf("base UV taken from wrong stream: %+v", uv)
 	}
 }
