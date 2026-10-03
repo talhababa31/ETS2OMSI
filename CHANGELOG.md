@@ -1,5 +1,12 @@
 # Changelog
 
+## V2.2.1 — Jazzycat analiz düzeltmeleri
+
+- 3D önizleme: üçgen sarımı vertex normallerine göre düzeltiliyor (O3D çıktısıyla aynı kural); CULL_FACE kapalı, `0` normal değerleri artık doğru. Araçlar önizlemede siyah görünmüyor.
+- Texture: seçilen paket artık doğrudan okunuyor. Adında boşluk olan (`tableau de bord.dds`), yanında `.tobj` olmayan (`cargocolor.dds`) ve PIT'te uzantısız yazılan texture'lar çıkarılıyor. Eşleşme sırası: tam yol → TOBJ içindeki yol → boşluk/alt çizgi duyarsız yol → paket genelinde tekil dosya adı (belirsizse reddedilir). OMSI'ye yazılan texture adlarında boşluk yok.
+- Uyarılar: cam fallback'leri artık uyarı sayılmıyor (tasarım gereği, base.scs'teki paylaşılan cam); gövde+LOD tekrar eden uyarılar tekilleştirildi.
+- EXE: görünür durum penceresi (URL + log yolu, "Evet = tarayıcıda aç / Hayır = kapat"), tek-örnek koruması (ikinci çift tıklama mevcut örneği açar), mutlak log yolu (`%LocalAppData%\ETS2OMSI\`), arayüzde ⏻ Kapat düğmesi + `/api/quit`, `--no-browser` ve `--no-window` seçenekleri.
+
 ## V2.2 MATERIAL + PHYSICS
 
 - Fixed sparse PIM material indices so triangle material slots are never compressed or shifted.
