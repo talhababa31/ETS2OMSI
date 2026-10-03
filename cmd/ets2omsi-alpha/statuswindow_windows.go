@@ -51,3 +51,7 @@ func platformStatusWindow(url, logPath string, open, quit func()) {
 func platformShowError(msg string) {
 	messageBox(msg, statusWindowName, mbOK|mbIconError|mbSetForeground)
 }
+
+func platformShowInfo(msg string) {
+	messageBox(msg, statusWindowName, mbOK|mbIconInfo|mbSetForeground)
+}

@@ -63,7 +63,7 @@ func appDataDir() string {
 
 func main() {
 	noBrowser := flag.Bool("no-browser", false, "do not open the web UI in a browser")
-	noWindow := flag.Bool("no-window", false, "do not show the status window (Windows)")
+	noWindow := flag.Bool("no-window", false, "do not open the program window; serve the UI for a browser instead")
 	flag.Parse()
 
 	dataDir := appDataDir()
@@ -80,8 +80,12 @@ func main() {
 	if url := runningInstance(instFile); url != "" {
 		log.Println("already running at", url)
 		fmt.Println("ETS2OMSI zaten çalışıyor:", url)
-		if !*noBrowser {
-			_ = openBrowser(url)
+		if *noWindow {
+			if !*noBrowser {
+				_ = openBrowser(url)
+			}
+		} else {
+			platformShowInfo("ETS2OMSI zaten açık. Açık olan pencereyi kullan (görev çubuğuna bak).")
 		}
 		return
 	}
@@ -117,17 +121,23 @@ func main() {
 		}
 		requestQuit()
 	}()
-	if !*noBrowser {
-		go func() { time.Sleep(180 * time.Millisecond); _ = openBrowser(instanceURL) }()
-	}
-	if !*noWindow {
-		go platformStatusWindow(instanceURL, logPath, func() { _ = openBrowser(instanceURL) }, requestQuit)
-	}
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt)
-	select {
-	case <-quitCh:
-	case <-sig:
+	// Normal Windows start: the UI opens in its own program window. The
+	// browser is only a fallback (no WebView2 runtime, or --no-window).
+	if !*noWindow && platformRunWindow(instanceURL, dataDir, quitCh) {
+		requestQuit()
+	} else {
+		if !*noBrowser {
+			go func() { time.Sleep(180 * time.Millisecond); _ = openBrowser(instanceURL) }()
+		}
+		if !*noWindow {
+			go platformStatusWindow(instanceURL, logPath, func() { _ = openBrowser(instanceURL) }, requestQuit)
+		}
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt)
+		select {
+		case <-quitCh:
+		case <-sig:
+		}
 	}
 	log.Println("shutting down")
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

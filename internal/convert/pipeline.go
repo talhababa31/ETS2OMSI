@@ -1200,6 +1200,8 @@ func applySafeMaterialFallbacks(sc *scene.Scene, unresolved []string, texDir str
 	for _, u := range unresolved {
 		wanted[strings.ToLower(strings.TrimSpace(u))] = true
 	}
+	var paint color.NRGBA
+	paintKnown, havePaint := false, false
 	for i := range sc.Materials {
 		m := &sc.Materials[i]
 		label := strings.TrimSpace(m.Alias)
@@ -1218,9 +1220,18 @@ func applySafeMaterialFallbacks(sc *scene.Scene, unresolved []string, texDir str
 			m.Alpha = true
 		}
 		name := "fallback_" + class + ".png"
-		if class == "" || class == "body" || class == "paint" {
+		if isPaintLikeClass(class) {
 			name = "fallback_body.png"
 			class = "body"
+			if !paintKnown {
+				paintKnown = true
+				paint, havePaint = scenePaintColor(sc, texDir)
+			}
+			if havePaint {
+				if n := writePaintFallback(texDir, paint, tr); n != "" {
+					name = n
+				}
+			}
 		}
 		p := filepath.Join(texDir, name)
 		if _, e := os.Stat(p); os.IsNotExist(e) {
@@ -1251,6 +1262,10 @@ func applySafeMaterialFallbacks(sc *scene.Scene, unresolved []string, texDir str
 func writeNeutral(p, class string) error {
 	c := color.NRGBA{48, 48, 52, 255}
 	switch class {
+	case "body", "paint":
+		// No paint information at all: a light neutral paint reads as a car
+		// body in OMSI; the former near-black looked like missing panels.
+		c = color.NRGBA{200, 200, 205, 255}
 	case "glass":
 		c = color.NRGBA{95, 110, 120, 120}
 	case "light":

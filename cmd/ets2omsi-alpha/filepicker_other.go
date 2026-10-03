@@ -15,3 +15,7 @@ func platformPickFolder(titleText string) (string, error) {
 // Ctrl+C / the UI "Kapat" button stops the server.
 func platformStatusWindow(url, logPath string, open, quit func()) {}
 func platformShowError(msg string)                                { fmt.Println(msg) }
+
+func platformRunWindow(url, dataDir string, quit <-chan struct{}) bool { return false }
+
+func platformShowInfo(msg string) { fmt.Println(msg) }
