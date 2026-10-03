@@ -1,4 +1,4 @@
-# ETS2OMSI V2.5.1 — Nasıl Kullanılır
+# ETS2OMSI V2.5.2 — Nasıl Kullanılır
 
 ETS2 trafik paketindeki (.scs) AI arabaları OMSI 2 AI aracına çevirir.
 

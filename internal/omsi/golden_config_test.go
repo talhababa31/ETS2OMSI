@@ -77,3 +77,16 @@ func TestSuspensionStaticSagIsSmall(t *testing.T) {
 		t.Fatalf("old soft spring still emitted:\n%s", ovh)
 	}
 }
+
+func TestOMSITextFilesAreASCII(t *testing.T) {
+	v := VehicleSpec{Name: "Car", Type: "car", ColorLabel: "Kırmızı", Physics: PhysicsProfile{Mass: 1.4, Class: ClassMinibus}}
+	s := ansiText(OVH(v))
+	for _, r := range s {
+		if r > 127 {
+			t.Fatalf("non-ASCII rune %q in OVH", r)
+		}
+	}
+	if !strings.Contains(s, "Kirmizi") || !strings.Contains(s, "Minibus") {
+		t.Fatalf("transliteration missing:\n%s", s)
+	}
+}

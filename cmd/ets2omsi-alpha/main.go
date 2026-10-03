@@ -39,7 +39,7 @@ type appState struct {
 
 var current appState
 
-const appVersion = "V2.5.1"
+const appVersion = "V2.5.2"
 
 var (
 	logPath     string
@@ -288,7 +288,8 @@ func convertAPI(w http.ResponseWriter, r *http.Request) {
 	if req.OutputRoot == "" {
 		req.OutputRoot = "output"
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
+	// A whole traffic pack with colour variants can take well over 30 min.
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Hour)
 	defer cancel()
 	pix, err := ensureConverterPIX(ctx)
 	if err != nil {

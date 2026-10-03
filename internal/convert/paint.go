@@ -160,7 +160,7 @@ func bakeTint(texDir, tex string, tint [3]float64) string {
 	}
 	tc := tintColor(tint)
 	stem := strings.TrimSuffix(tex, filepath.Ext(tex))
-	name := fmt.Sprintf("%s_t%02x%02x%02x.png", strings.ReplaceAll(stem, " ", "_"), tc.R, tc.G, tc.B)
+	name := fmt.Sprintf("%s_t%02x%02x%02x.png", asciiFileStem(stem), tc.R, tc.G, tc.B)
 	p := filepath.Join(texDir, name)
 	if _, err := os.Stat(p); err == nil {
 		return name

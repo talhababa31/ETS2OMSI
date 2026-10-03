@@ -2,7 +2,14 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr-TR/1.1.0/) esas alınarak hazırlanmıştır.
 
-## [Yayınlanmamış]
+## [2.5.2] — 2026-10-03
+
+### Düzeltildi
+- **OMSI'de bulunamayan texture'lar:** O3D texture adları ANSI karakter setinde yazılırken diskteki dosya adları orijinal (ör. Lehçe `ł`) kalıyordu. Tüm çıktı texture adları artık ASCII.
+- **Bozuk araç adları:** `.ovh` / `model.cfg` UTF-8 yazılıyordu; OMSI ANSI okuduğu için "Kırmızı", "Minibüs", "·" bozuk görünüyordu. Metin dosyaları artık ASCII (Türkçe harfler sadeleştirilir).
+- **Toplu dönüştürmede yarıda kesilme:** Tek istekte 30 dakika sınırı vardı; büyük paketler renk çeşitleriyle bunu aşabiliyordu. Sınır 8 saate çıkarıldı.
+- **Lamba parlaması (flare) ve gölge yüzeyleri:** Texture'ları pakette olduğunda OMSI'de opak kareler olarak çiziliyordu; artık her zaman görünmez.
+- **Çıkartmalar (decal):** Saydamlık kullanmıyordu; gövde üzerinde dikdörtgen görünebiliyordu.
 
 ### Değişti
 - Yeni marka kimliği: neon yeşil çizgi ikon (disket · dişli · direksiyon) ve "ETS 2OMSI" yazı logosu; README banner'ı, GitHub paylaşım görseli (`assets/brand/social.png`), uygulama ve exe simgesi.

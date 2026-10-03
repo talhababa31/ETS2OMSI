@@ -4,7 +4,7 @@
 
 **Euro Truck Simulator 2 trafik araçlarını OMSI 2 AI araçlarına dönüştürür.**
 
-[![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-2.5.1-8CF03C?style=for-the-badge&labelColor=202328)](CHANGELOG.md)
+[![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-2.5.2-8CF03C?style=for-the-badge&labelColor=202328)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-8CF03C?style=for-the-badge&labelColor=202328)](#indirme)
 [![Hedef](https://img.shields.io/badge/hedef-OMSI%202-8CF03C?style=for-the-badge&labelColor=202328)](#nasıl-çalışır)
 [![Go](https://img.shields.io/badge/Go-1.23%2B-8CF03C?style=for-the-badge&logo=go&logoColor=8CF03C&labelColor=202328)](BUILD.md)

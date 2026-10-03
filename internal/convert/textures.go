@@ -313,7 +313,7 @@ func (r *textureResolver) emit(f pkgFile, addrU, addrV int) (string, error) {
 		return "", err
 	}
 	ext := strings.ToLower(path.Ext(f.path))
-	base := strings.ReplaceAll(strings.TrimSuffix(path.Base(f.path), path.Ext(f.path)), " ", "_")
+	base := asciiFileStem(strings.TrimSuffix(path.Base(f.path), path.Ext(f.path)))
 	mirrorU, mirrorV := addrU == addrMirror, addrV == addrMirror
 	var out []byte
 	if ext == ".dds" && !mirrorU && !mirrorV && isLegacyDDS(data) {
@@ -618,4 +618,27 @@ func decodeTGA(b []byte) (image.Image, error) {
 		out.SetNRGBA(x, y, c)
 	}
 	return out, nil
+}
+
+var turkishASCII = strings.NewReplacer("ı", "i", "İ", "I", "ş", "s", "Ş", "S", "ğ", "g", "Ğ", "G", "ü", "u", "Ü", "U", "ö", "o", "Ö", "O", "ç", "c", "Ç", "C")
+
+// asciiFileStem makes an OMSI-safe file name stem. The O3D stores texture
+// names in the ANSI code page, so any other character would make OMSI look
+// for a different file than the one on disk.
+func asciiFileStem(s string) string {
+	s = turkishASCII.Replace(s)
+	b := strings.Builder{}
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-', r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	out := strings.Trim(b.String(), "._")
+	if out == "" {
+		out = "texture"
+	}
+	return out
 }
